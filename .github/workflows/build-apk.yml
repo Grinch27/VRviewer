@@ -1,0 +1,136 @@
+name: Android APK
+
+# Open decisions: optical/physical-device acceptance and production signing remain separate milestones.
+# Verification: JVM tests, Android lint, debug/release assembly and generated-fixture emulator playback.
+# GitHub Actions workflow syntax reference:
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/workflow-syntax
+# https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**.md', 'LICENSE', 'NOTICE']
+  pull_request:
+    paths-ignore: ['**.md', 'LICENSE', 'NOTICE']
+  workflow_dispatch:
+
+run-name: VRviewer APK · ${{ github.ref_name }} · ${{ github.sha }}
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  TZ: Etc/UTC
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+  GIT_TERMINAL_PROMPT: '0'
+
+concurrency:
+  group: android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runner-image:
+    name: ubuntu-latest - runner-image
+    runs-on: ubuntu-latest
+    outputs:
+      RUNNER_IMAGE: ${{ steps.resolve-runner-image.outputs.RUNNER_IMAGE }}
+    steps:
+      - name: Resolve runner-image
+        id: resolve-runner-image
+        uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
+
+  build:
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - APK and checks
+    needs: runner-image
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@main
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@main
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - name: Test, lint and assemble
+        run: ./gradlew --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+      - name: Prepare installable preview APK
+        run: |
+          set -euo pipefail
+          install -D app/build/outputs/apk/debug/app-debug.apk build/delivery/VRviewer-debug.apk
+          (cd build/delivery && sha256sum VRviewer-debug.apk > SHA256SUMS)
+      - name: Upload preview APK
+        uses: actions/upload-artifact@main
+        with:
+          name: VRviewer-debug-${{ github.sha }}
+          path: build/delivery/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload verification reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@main
+        with:
+          name: verification-${{ github.sha }}
+          path: |
+            core/build/reports/tests/
+            core/build/test-results/
+            app/build/reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+  playback-smoke:
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - Android 35 playback
+    needs: [runner-image, build]
+    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+        with:
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@main
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@main
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+      - name: Install run_sudo
+        uses: Grinch27/github-actions/.github/actions/run-sudo@main
+      - name: Allow runner access to KVM
+        run: |
+          set -euo pipefail
+          test -c /dev/kvm
+          run_sudo chown "$(id -u):$(id -g)" /dev/kvm
+      - name: Decode and verify stereo output
+        uses: ReactiveCircus/android-emulator-runner@main
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
+      - name: Upload playback test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@main
+        with:
+          name: playback-smoke-${{ github.sha }}
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+          if-no-files-found: warn
+          retention-days: 14

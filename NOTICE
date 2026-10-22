@@ -1,0 +1,16 @@
+VRviewer retains the repository's existing GNU GPL version 3 license text in LICENSE.
+
+Architecture references reviewed on 2026-10-23 (Asia/Shanghai):
+- Grinch27/awara main: 7e84d9b7e411fd690bd74909c1e6fb8bf7b7823e
+- Grinch27/awara dev: 81a26ad52d7f33340ff0f0a29e1a9126b0c42453
+- Grinch27/EhViewer master: 9e1021640472ee45f35c0bb1950723db08549b9e
+
+Application business code, shaders and test fixtures were implemented for VRviewer;
+reference application branding, account/network code and signing material were not copied.
+
+Gradle Wrapper scripts/JAR are generated from Gradle 8.13 (Apache License 2.0).
+AndroidX/Media3 and Kotlin are upstream dependencies, with their own license notices.
+See the relevant upstream distributions and dependency metadata for third-party terms.
+
+androidTest/assets/sbs.mp4 and tb.mp4 are synthetic red/blue H.264 videos generated
+with FFmpeg from color sources. They contain no downloaded or user-provided media.

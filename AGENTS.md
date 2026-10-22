@@ -494,25 +494,31 @@ https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workf
 
 <!-- BEGIN: PROJECT-SPECIFIC RULES -->
 
-## 1. 当前仓库状态
+## 1. 产品与真实架构
 
-在本文件建立时，`main` 仅有 `LICENSE`，尚未发现 `README.md`、项目源码、测试或 `.github/workflows/` 工作流。因此，不能从仓库名称推断应用平台、程序语言、VR 渲染技术、功能特性、构建工具链、发布渠道或设备兼容性。
+- 用户在 2026-10-23 明确要求：参考 awara、EhViewer，设计并部署 Android 本地 VR 视频播放器到本仓库。
+- 首版为 Kotlin / Compose Material 3 / Media3 / OpenGL ES 2.0。`core` 是纯 JVM 模型与数学；`app` 含 playback、render、storage、ui。
+- 投影、片源双目排布、单眼/双眼输出三个维度必须独立。不可把分屏等同于真实立体或已经完成镜片校准。
+- 保持功能专注本地视频。账号、网络平台、下载、社交、投屏和云服务不属于当前范围。
+- 完整参考依据、取舍与改进清单见 `docs/DESIGN.md`；真实验证状态见 `README.md`。
 
-本部分只记录当前已经核验的边界，不将推测转化为项目约束。后续新增源码或构建系统时，应先检查真实文件并在得到明确授权后补充项目专属规范。
+## 2. 实现与构建要求
 
-## 2. 开发与工作流要求
+- 外部入口只接受用户选择的 `content://`；不得索取全盘权限或将 URI 伪装成文件路径。
+- 应用不声明网络权限，不上传视频、URI、历史或日志；本机历史最多 50 条，关闭云备份与设备迁移。
+- 一个解码器供两个视口；保持逻辑视频的每眼裁剪先于 SurfaceTexture 矩阵。
+- 当前只验证 SDR 链路；HDR 在支持正确色调映射前应明确拒绝。鱼眼、立方体、特殊网格不属于等距柱状模式。
+- 播放器调用在主线程，GL 在渲染线程，元数据 I/O 在后台；离开前台释放播放器并停止传感器。
+- 新工作流遵守 Part I，先建立 Non-container 基础路线，暂不增加 Container。
+- 依赖集中于版本目录并固定版本；修改后执行 JVM、lint、debug/release 和 instrumentation APK 构建。
+- 保留已有 GPL v3 LICENSE；不复制参考项目的签名材料、账号数据或品牌。
 
-- 新建工作流时执行 Part I 的 GitHub Actions 通用规范，原则上先建立 Non-container 基础路线并实际验证，再研究 Container 路线。
-- 引入远程 GitHub Action 时核对实际默认分支、入口及输入输出；普通 Runner Job 遵守动态 `runner-image` 规则。
-- 开始设计、重构或测试前先读取 `main` 最新版本及相关实际文件，不得将不存在的脚本、CI、Artifact 或 Release 描述为已完成。
-- `LICENSE` 目前为 GNU GPL v3 许可证文本；不得在没有独立授权时删除、替换或擅自修改许可证内容。
+## 3. 验证与授权
 
-## 3. 验证与授权边界
-
-本次仅授权创建 `AGENTS.md` 并提交 `main`，不自动创建工作流、编写源码、触发 CI、构建安装包、发布 Release 或部署外部服务。
-
-后续任务必须分别报告已执行的静态检查、真实构建、运行测试与部署证据。尚无可执行项目实现时，构建与运行状态应明确为 `NOT_TESTED`，不能报告成功。
-
-Part II 由 VRviewer 仓库独立维护，不受通用 Part I 同步脚本覆盖。
+- 本轮明确授权本仓库源码、文档、测试、构建工作流与 main 提交；允许提交触发对应 CI 验证。
+- awara 与 EhViewer 只读。未经新授权不改参考仓库、不部署到用户手机、不改设备设置、不配置生产签名、不发商店或收费服务。
+- 自动测试媒体只使用人工生成测试卡，禁止上传用户视频。
+- 必须区分静态检查、完整 APK 构建、模拟器实际播放、手机与光学验证。未执行项标记 NOT_TESTED。
+- Part I 通用规则保持原文；Part II 独立维护。不要自行添加规范同步脚本或定时同步工作流。
 
 <!-- END: PROJECT-SPECIFIC RULES -->
