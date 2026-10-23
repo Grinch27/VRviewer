@@ -93,7 +93,7 @@ jobs:
 
   playback-smoke:
     name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - Android 35 playback
-    needs: [runner-image, build]
+    needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     timeout-minutes: 30
     steps:
@@ -112,9 +112,11 @@ jobs:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0 emulator system-images;android-35;google_apis;x86_64'
       - name: Install run_sudo
         uses: Grinch27/github-actions/.github/actions/run-sudo@main
-      - name: Allow runner access to KVM
+      - name: Install emulator runtime and allow KVM
         run: |
           set -euo pipefail
+          run_sudo apt-get update
+          run_sudo apt-get install -y --no-install-recommends libpulse0
           test -c /dev/kvm
           run_sudo chown "$(id -u):$(id -g)" /dev/kvm
       - name: Decode and verify stereo output

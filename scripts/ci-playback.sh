@@ -11,6 +11,7 @@ serial="emulator-5554"
 report_dir="${PWD}/build/emulator"
 mkdir -p "$report_dir"
 
+ldd "${sdk_dir}/emulator/qemu/linux-x86_64/qemu-system-x86_64" > "${report_dir}/runtime-libraries.txt" 2>&1 || true
 "$emulator_bin" -version
 "$emulator_bin" -accel-check
 printf 'no\n' | avdmanager create avd --force --name vrviewer-ci \
