@@ -109,7 +109,7 @@ class PlaybackController(
         player?.setVideoSurface(value)
     }
 
-    fun setProfile(value: PlaybackProfile) { profile = value.normalized() }
+    fun updateProfile(value: PlaybackProfile) { profile = value.normalized() }
 
     fun tick() {
         val current = player ?: return

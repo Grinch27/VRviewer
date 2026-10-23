@@ -40,7 +40,7 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
     var controls by remember { mutableStateOf(true) }
     var settings by remember { mutableStateOf(false) }
     val video = remember(controller) {
-        VrVideoView(activity, controller::attachSurface, controller::reportError, { controls = !controls }, controller::togglePlay) { fov -> controller.setProfile(controller.profile.copy(fieldOfView = fov)) }
+        VrVideoView(activity, controller::attachSurface, controller::reportError, { controls = !controls }, controller::togglePlay) { fov -> controller.updateProfile(controller.profile.copy(fieldOfView = fov)) }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     SideEffect {
@@ -116,7 +116,7 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
                 }
             }
         }
-        if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, controller::setProfile, controller::speed, controller::loop, video::recenter) { settings = false }
+        if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, controller::updateProfile, controller::speed, controller::loop, video::recenter) { settings = false }
     }
 }
 

@@ -63,8 +63,10 @@ jobs:
         uses: android-actions/setup-android@main
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-      - name: Test, lint and assemble
-        run: ./gradlew --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+      - name: Compile and unit tests
+        run: ./gradlew --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:compileReleaseKotlin :app:compileDebugAndroidTestKotlin
+      - name: Lint and assemble APKs
+        run: ./gradlew --no-daemon --console=plain :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
       - name: Prepare installable preview APK
         run: |
           set -euo pipefail

@@ -78,7 +78,7 @@ class LocalPlaybackTest {
             scenario.onActivity { activity ->
                 controller = PlaybackController(activity.applicationContext, MovieEntry(sourceUri, "Synthetic fixture")) { saved = it }
                 controllerReady = true
-                controller.setProfile(base)
+                controller.updateProfile(base)
                 video = VrVideoView(activity, controller::attachSurface, controller::reportError, {}, {}, {})
                 videoReady = true
                 video.update(base, decodedWidth, decodedHeight, 1f)
@@ -88,13 +88,13 @@ class LocalPlaybackTest {
             }
             assertEyeColors(scenario, video, dual = true, swapped = false)
             base = base.copy(display = DisplayMode.SINGLE)
-            scenario.onActivity { controller.setProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
+            scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
             assertEyeColors(scenario, video, dual = false, swapped = false)
             base = base.copy(swapEyes = true)
-            scenario.onActivity { controller.setProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
+            scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
             assertEyeColors(scenario, video, dual = false, swapped = true)
             base = base.copy(projection = Projection.EQUIRECT_360, display = DisplayMode.DUAL)
-            scenario.onActivity { controller.setProfile(base); video.update(base, decodedWidth, decodedHeight, 1f); controller.seek(1_000) }
+            scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f); controller.seek(1_000) }
             assertEyeColors(scenario, video, dual = true, swapped = true)
             scenario.onActivity {
                 controller.tick()
