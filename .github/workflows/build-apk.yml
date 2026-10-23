@@ -109,7 +109,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@main
         with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 emulator system-images;android-35;google_apis;x86_64'
       - name: Install run_sudo
         uses: Grinch27/github-actions/.github/actions/run-sudo@main
       - name: Allow runner access to KVM
@@ -118,14 +118,7 @@ jobs:
           test -c /dev/kvm
           run_sudo chown "$(id -u):$(id -g)" /dev/kvm
       - name: Decode and verify stereo output
-        uses: ReactiveCircus/android-emulator-runner@main
-        with:
-          api-level: 35
-          arch: x86_64
-          target: google_apis
-          profile: pixel_2
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
+        run: bash scripts/ci-playback.sh
       - name: Upload playback test reports
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@main
@@ -134,5 +127,6 @@ jobs:
           path: |
             app/build/reports/androidTests/
             app/build/outputs/androidTest-results/
+            build/emulator/
           if-no-files-found: warn
           retention-days: 14
