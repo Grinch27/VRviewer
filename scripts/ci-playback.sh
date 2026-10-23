@@ -58,6 +58,7 @@ done
 ./gradlew --no-daemon --console=plain :app:connectedDebugAndroidTest
 
 # Preserve an actual rendered home screen beside test reports for visual review.
+"$adb_bin" -s "$serial" install -r app/build/outputs/apk/debug/app-debug.apk
 "$adb_bin" -s "$serial" shell am force-stop org.grinch27.vrviewer
 "$adb_bin" -s "$serial" shell am start -W -n org.grinch27.vrviewer/.MainActivity
 sleep 2
