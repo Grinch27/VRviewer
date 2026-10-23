@@ -7,6 +7,7 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import org.grinch27.vrviewer.core.DisplayMode
+import org.grinch27.vrviewer.core.MediaUrl
 import org.grinch27.vrviewer.core.PlaybackProfile
 import org.grinch27.vrviewer.core.Projection
 import org.grinch27.vrviewer.core.StereoLayout
@@ -43,6 +44,7 @@ class PlaybackStore(context: Context) {
 
     /** Invoke on Dispatchers.IO: document providers may perform disk or binder work. */
     fun resolve(context: Context, uri: Uri): MovieEntry {
+        MediaUrl.normalize(uri.toString())?.let { return MovieEntry(it, "网络视频") }
         require(uri.scheme == "content") { "Only content URIs are accepted" }
         val previous = recent().firstOrNull { it.uri == uri.toString() }
         val name = runCatching {

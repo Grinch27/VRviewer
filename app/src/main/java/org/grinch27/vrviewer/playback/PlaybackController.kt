@@ -43,9 +43,9 @@ class PlaybackController(
     private val entry: MovieEntry,
     private val checkpoint: (MovieEntry) -> Unit,
 ) {
-    var status by mutableStateOf(PlaybackStatus(positionMs = ProjectionMath.resumePosition(entry.positionMs, entry.durationMs)))
+    var status: PlaybackStatus by mutableStateOf(PlaybackStatus(positionMs = ProjectionMath.resumePosition(entry.positionMs, entry.durationMs)))
         private set
-    var profile by mutableStateOf(entry.profile.normalized())
+    var profile: PlaybackProfile by mutableStateOf(entry.profile.normalized())
         private set
     private var player: ExoPlayer? = null
     private var surface: Surface? = null
@@ -56,9 +56,9 @@ class PlaybackController(
 
     fun start() {
         if (player != null || closed) return
-        val localFactory = DataSource.Factory { LocalDataSource(context) }
+        val sourceFactory = DataSource.Factory { PlaybackDataSource(context) }
         val created = ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(localFactory))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(sourceFactory))
             .setHandleAudioBecomingNoisy(true)
             .build()
         player = created
@@ -85,6 +85,9 @@ class PlaybackController(
                 val message = when (error.errorCode) {
                     PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> "文件授权已失效，请返回并重新选择视频。"
                     PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND -> "文件已移动、删除或存储设备已断开，请重新选择视频。"
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "链接不可访问或授权已过期，请检查视频直链。"
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "网络连接失败或超时，请检查链接和网络后重试。"
                     PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
                     PlaybackException.ERROR_CODE_DECODER_INIT_FAILED -> "设备无法解码该视频格式或分辨率，请尝试 H.264 SDR 片源。"
                     else -> "播放失败（${error.errorCodeName}），可重试或重新选择文件。"

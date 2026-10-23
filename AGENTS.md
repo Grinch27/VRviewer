@@ -499,13 +499,15 @@ https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workf
 - 用户在 2026-10-23 明确要求：参考 awara、EhViewer，设计并部署 Android 本地 VR 视频播放器到本仓库。
 - 首版为 Kotlin / Compose Material 3 / Media3 / OpenGL ES 2.0。`core` 是纯 JVM 模型与数学；`app` 含 playback、render、storage、ui。
 - 投影、片源双目排布、单眼/双眼输出三个维度必须独立。不可把分屏等同于真实立体或已经完成镜片校准。
-- 保持功能专注本地视频。账号、网络平台、下载、社交、投屏和云服务不属于当前范围。
+- 首页严格只保留“打开本地文件”和“打开 URL 链接”两个按钮；控制和 VR 设置位于播放器内，不展示媒体库、最近列表或额外首页入口。
+- 功能专注视频播放：本地文档与用户输入的 HTTP/HTTPS 媒体直链（含 HLS/DASH），不解析视频网站网页，不引入账号、社交、下载器、投屏和云服务。
 - 完整参考依据、取舍与改进清单见 `docs/DESIGN.md`；真实验证状态见 `README.md`。
 
 ## 2. 实现与构建要求
 
-- 外部入口只接受用户选择的 `content://`；不得索取全盘权限或将 URI 伪装成文件路径。
-- 应用不声明网络权限，不上传视频、URI、历史或日志；本机历史最多 50 条，关闭云备份与设备迁移。
+- 文件管理器 ACTION_VIEW 外部入口仅接受 `content://`；HTTP/HTTPS URL 由首页输入。不得索取全盘权限或将 URI 伪装成文件路径。
+- 按用户明确新增的 URL 需求声明 INTERNET，允许指定 HTTP/HTTPS 媒体读取；不上传视频、URI、历史或日志，无启动预取。
+- 本地文件内部记录最多 50 条；网络 URL 不写入永久历史，只在当前 Activity 会话中记住状态。关闭云备份与设备迁移。
 - 一个解码器供两个视口；保持逻辑视频的每眼裁剪先于 SurfaceTexture 矩阵。
 - 当前只验证 SDR 链路；HDR 在支持正确色调映射前应明确拒绝。鱼眼、立方体、特殊网格不属于等距柱状模式。
 - 播放器调用在主线程，GL 在渲染线程，元数据 I/O 在后台；离开前台释放播放器并停止传感器。

@@ -1,10 +1,10 @@
-// Open decisions: folder indexing, subtitle selection and calibrated headset setup are later milestones.
-// Risk/verification: process restoration, provider failure, content-only external intents and cancellable metadata I/O.
+// Requirements/ambiguities: the home screen contains exactly two buttons; URL means a direct HTTP(S) media link.
+// Research/optimization: keep playback controls in the player; no library scanning or network preflight on launch.
+// Risks/verification: restore the selected source, validate URL schemes, and keep signed URLs out of permanent history.
 package org.grinch27.vrviewer
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.KeyEvent
 import android.widget.Toast
@@ -13,29 +13,26 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.media3.common.util.UnstableApi
+import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.grinch27.vrviewer.core.MediaUrl
+import org.grinch27.vrviewer.playback.PlaybackSession
 import org.grinch27.vrviewer.storage.MovieEntry
 import org.grinch27.vrviewer.storage.PlaybackStore
 import org.grinch27.vrviewer.ui.PlaybackScreen
-import org.grinch27.vrviewer.ui.projectionLabel
-import org.grinch27.vrviewer.ui.stereoLabel
-import org.grinch27.vrviewer.ui.timeLabel
 
 @UnstableApi
 class MainActivity : ComponentActivity() {
@@ -80,11 +77,12 @@ private class LocalVideoPicker : ActivityResultContracts.OpenDocument() {
 @Composable
 private fun PlayerApp(activity: MainActivity, incomingUri: String?) {
     val store = remember { PlaybackStore(activity.applicationContext) }
+    val session = remember { ViewModelProvider(activity)[PlaybackSession::class.java] }
     var selectedUri by rememberSaveable { mutableStateOf(incomingUri) }
     var entry by remember { mutableStateOf<MovieEntry?>(null) }
-    var recents by remember { mutableStateOf(emptyList<MovieEntry>()) }
     var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var showUrl by rememberSaveable { mutableStateOf(false) }
+    var urlText by rememberSaveable { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(LocalVideoPicker()) { uri ->
         uri?.let {
             if (!store.retainReadGrant(activity, it)) {
@@ -102,18 +100,18 @@ private fun PlayerApp(activity: MainActivity, incomingUri: String?) {
     LaunchedEffect(selectedUri) {
         entry = null
         val value = selectedUri
+        session.select(value)
         if (value == null) {
             loading = false
-            recents = withContext(Dispatchers.IO) { store.recent() }
         } else {
-            error = null
             loading = true
             try {
-                entry = withContext(Dispatchers.IO) { store.resolve(activity, Uri.parse(value)) }
+                entry = session.current ?: withContext(Dispatchers.IO) { store.resolve(activity, value.toUri()) }
+                entry?.let(session::checkpoint)
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                error = "无法读取文件信息，请重新选择视频。"
+                Toast.makeText(activity, "无法打开视频，请重新选择文件或检查链接。", Toast.LENGTH_LONG).show()
                 selectedUri = null
             } finally {
                 loading = false
@@ -123,62 +121,47 @@ private fun PlayerApp(activity: MainActivity, incomingUri: String?) {
     val movie = entry
     if (movie != null) {
         key(movie.uri) {
-            PlaybackScreen(activity, movie, store::save) { selectedUri = null }
+            PlaybackScreen(activity, movie, { checkpoint -> session.checkpoint(checkpoint); store.save(checkpoint) }) {
+                session.select(null)
+                selectedUri = null
+            }
         }
     } else {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            LazyColumn(
-                modifier = Modifier.safeDrawingPadding(),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                item {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("VRviewer", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-                            Text("本地 · 离线 · 专注播放", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.secondary)
-                        }
-                        Text("0.1", style = MaterialTheme.typography.labelLarge)
+            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
+                Column(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !loading, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text("打开本地文件")
                     }
-                }
-                item {
-                    Card {
-                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text("打开本地视频", style = MaterialTheme.typography.titleLarge)
-                            Text("平面、180°、360°视频；单眼观看或双眼分屏。", style = MaterialTheme.typography.bodyMedium)
-                            Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
-                                Text(if (loading) "读取文件信息…" else "选择视频")
-                            }
-                        }
-                    }
-                }
-                if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
-                error?.let { message -> item { Text(message, color = MaterialTheme.colorScheme.error) } }
-                item {
-                    Text("观看方式", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(6.dp))
-                    Text("在播放器设置中分别选择投影、片源排布和显示方式。360°支持拖动与双指缩放；姿态传感器可选。", style = MaterialTheme.typography.bodyMedium)
-                    Spacer(Modifier.height(6.dp))
-                    Text("双眼分屏尚无镜片校准。首版仅支持 SDR；文件解码能力取决于设备。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                item { Text("最近播放  ${recents.size}", style = MaterialTheme.typography.titleMedium) }
-                if (recents.isEmpty()) item { Text("选择视频后，会在本机记住进度与观看模式。", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(recents, key = { it.uri }) { recent ->
-                    Row(
-                        Modifier.fillMaxWidth().clickable { selectedUri = recent.uri }.background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.medium).padding(14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Text("▶", color = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.weight(1f)) {
-                            Text(recent.name, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                            Text("${projectionLabel(recent.profile.projection)} · ${stereoLabel(recent.profile.stereo)}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.secondary)
-                            Text("${timeLabel(recent.positionMs)} / ${timeLabel(recent.durationMs)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Text("继续", style = MaterialTheme.typography.labelLarge)
+                    Button(onClick = { showUrl = true }, enabled = !loading, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                        Text("打开 URL 链接")
                     }
                 }
             }
         }
+    }
+    if (showUrl) {
+        val normalized = MediaUrl.normalize(urlText)
+        AlertDialog(
+            onDismissRequest = { showUrl = false; urlText = "" },
+            title = { Text("打开 URL 链接") },
+            text = {
+                OutlinedTextField(
+                    value = urlText,
+                    onValueChange = { urlText = it },
+                    label = { Text("视频直链") },
+                    placeholder = { Text("https://…/video.mp4") },
+                    supportingText = { Text("HTTP / HTTPS 视频直链，或 m3u8、mpd；不解析视频网页。") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    isError = urlText.isNotBlank() && normalized == null,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { if (normalized != null) { selectedUri = normalized; showUrl = false; urlText = "" } }, enabled = normalized != null) { Text("打开") }
+            },
+            dismissButton = { TextButton(onClick = { showUrl = false; urlText = "" }) { Text("取消") } },
+        )
     }
 }

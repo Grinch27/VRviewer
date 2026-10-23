@@ -15,7 +15,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.grinch27.vrviewer.core.*
-import org.grinch27.vrviewer.playback.LocalDataSource
+import org.grinch27.vrviewer.playback.PlaybackDataSource
 import org.grinch27.vrviewer.playback.PlaybackController
 import org.grinch27.vrviewer.render.VrVideoView
 import org.grinch27.vrviewer.storage.MovieEntry
@@ -31,10 +31,10 @@ import java.util.concurrent.TimeUnit
 @UnstableApi
 @RunWith(AndroidJUnit4::class)
 class LocalPlaybackTest {
-    @Test fun networkAndArbitraryFilePathsAreRejected() {
+    @Test fun unsupportedSchemesAndArbitraryFilePathsAreRejected() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        for (uri in listOf("https://example.invalid/video.mp4", "file:///system/build.prop", "data:video/mp4;base64,AAAA")) {
-            val source = LocalDataSource(context)
+        for (uri in listOf("ftp://example.invalid/video.mp4", "file:///system/build.prop", "data:video/mp4;base64,AAAA")) {
+            val source = PlaybackDataSource(context)
             try {
                 source.open(DataSpec(Uri.parse(uri)))
                 fail("Non-local or unselected file must be rejected")
@@ -57,11 +57,14 @@ class LocalPlaybackTest {
 
     @Test fun sideBySideFramesKeepEyesSeparate() = verifyPackedPlayback("sbs.mp4", StereoLayout.LEFT_RIGHT)
     @Test fun topBottomFramesKeepEyesSeparate() = verifyPackedPlayback("tb.mp4", StereoLayout.TOP_BOTTOM)
+    @Test fun httpUrlDecodesAndKeepsEyesSeparate() = verifyPackedPlayback("sbs.mp4", StereoLayout.LEFT_RIGHT, network = true)
 
-    private fun verifyPackedPlayback(asset: String, layout: StereoLayout) {
+    private fun verifyPackedPlayback(asset: String, layout: StereoLayout, network: Boolean = false) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val fixture = File(instrumentation.targetContext.cacheDir, "generated-$asset")
         instrumentation.context.assets.open(asset).use { input -> fixture.outputStream().use { input.copyTo(it) } }
+        val server = if (network) FixtureServer(fixture.readBytes()) else null
+        val sourceUri = server?.url ?: Uri.fromFile(fixture).toString()
         val scenario = ActivityScenario.launch(MainActivity::class.java)
         lateinit var video: VrVideoView
         lateinit var controller: PlaybackController
@@ -73,7 +76,7 @@ class LocalPlaybackTest {
         val decodedHeight = if (layout == StereoLayout.TOP_BOTTOM) 320 else 160
         try {
             scenario.onActivity { activity ->
-                controller = PlaybackController(activity.applicationContext, MovieEntry(Uri.fromFile(fixture).toString(), "Synthetic fixture")) { saved = it }
+                controller = PlaybackController(activity.applicationContext, MovieEntry(sourceUri, "Synthetic fixture")) { saved = it }
                 controllerReady = true
                 controller.setProfile(base)
                 video = VrVideoView(activity, controller::attachSurface, controller::reportError, {}, {}, {})
@@ -97,6 +100,7 @@ class LocalPlaybackTest {
                 controller.tick()
                 assertNull(controller.status.error)
                 assertTrue("Decoder must report a seekable duration", controller.status.durationMs > 0)
+                assertTrue("Seek must move playback near the requested second", controller.status.positionMs in 900L..4_000L)
                 controller.stop()
                 assertFalse(controller.status.playing)
                 assertNotNull(saved)
@@ -110,6 +114,7 @@ class LocalPlaybackTest {
                 if (videoReady) { video.onPause(); video.close() }
             }
             scenario.close()
+            server?.close()
             fixture.delete()
         }
     }

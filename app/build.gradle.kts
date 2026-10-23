@@ -1,5 +1,5 @@
 // Open decisions: headset optical calibration, HDR and codec matrix need physical devices.
-// Optimization: a single decoder feeds both eyes; avoid adding network/download dependencies.
+// Optimization: a single decoder feeds both eyes; HTTP(S)/HLS/DASH use the same playback pipeline.
 // Risks/verification: assemble both variants, lint, unit tests and connected smoke tests.
 plugins {
     alias(libs.plugins.android.application)
@@ -45,10 +45,15 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.viewmodel)
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.hls)
+    implementation(libs.media3.dash)
     debugImplementation(libs.compose.tooling)
     testImplementation(libs.junit)
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.core)
     androidTestImplementation(libs.test.junit)
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test)
 }

@@ -145,7 +145,7 @@ private fun PlayerChrome(
             Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .95f), shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(message, style = MaterialTheme.typography.bodySmall)
-                    Row { TextButton(onClick = onRetry) { Text("重试") }; TextButton(onClick = onExit) { Text("重新选片") } }
+                    Row { TextButton(onClick = onRetry) { Text("重试") }; TextButton(onClick = onExit) { Text("返回首页") } }
                 }
             }
         }

@@ -18,10 +18,14 @@ compose-ui = { module = "androidx.compose.ui:ui" }
 compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-test = { module = "androidx.compose.ui:ui-test-junit4" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "core" }
 lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
+media3-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
+media3-dash = { module = "androidx.media3:media3-exoplayer-dash", version.ref = "media3" }
 junit = { module = "junit:junit", version.ref = "junit" }
 test-runner = { module = "androidx.test:runner", version.ref = "androidx-test" }
 test-core = { module = "androidx.test:core-ktx", version.ref = "androidx-test" }

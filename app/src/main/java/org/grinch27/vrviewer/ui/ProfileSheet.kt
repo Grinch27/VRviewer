@@ -11,7 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.grinch27.vrviewer.core.*
+import org.grinch27.vrviewer.core.DisplayMode
+import org.grinch27.vrviewer.core.PlaybackProfile
+import org.grinch27.vrviewer.core.Projection
+import org.grinch27.vrviewer.core.StereoLayout
 import org.grinch27.vrviewer.playback.PlaybackStatus
 
 fun projectionLabel(value: Projection) = when (value) {
