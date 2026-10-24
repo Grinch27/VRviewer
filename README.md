@@ -48,9 +48,9 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 - 可安装调试 APK：app/build/outputs/apk/debug/app-debug.apk。
 - 未签名 Release APK：app/build/outputs/apk/release/app-release-unsigned.apk，产物名 VRviewer-release-unsigned-<源码提交>；需自行签名后安装。
 - Actions 分别上传调试 APK、未签名 Release APK 与各自 SHA256SUMS；不运行单元测试、instrumentation、模拟器或独立 lint 步骤，不上传测试报告，不发 GitHub Release 或应用商店。
-- 调试签名由构建环境生成。本次 APK 与上一轮 0.1.0 预览证书已比对，签名不同，不能直接覆盖该旧包；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；本轮未配置稳定签名。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
+- 调试签名由构建环境生成，不保证不同运行的 APK 能覆盖旧版本；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；稳定签名需要另行配置。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
 
-本轮仅构建工作流已完成修改，待 Actions 实际打包确认；新的下载链接和校验值将在构建完成后记录。应用功能与版本保持 0.1.1。
+本轮仅构建已成功：[下载 Debug APK](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554581237) · [下载未签名 Release](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554576425) · [构建记录](https://github.com/Grinch27/VRviewer/actions/runs/40078550291)。应用功能与版本保持 0.1.1。
 
 在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`。未签名 Release 单独位于 `VRviewer-release-unsigned-<源码提交>`，每份压缩包均含 `SHA256SUMS`。产物保留 14 天，过期后可手动运行工作流重建。
 
@@ -58,7 +58,16 @@ Gradle 编译与打包的内置检查按插件默认行为执行。当前没有�
 
 ## 本轮构建记录
 
-待仅构建工作流的实际运行结果；构建成功仅说明 APK 已生成，不代表执行或通过了播放测试。
+源码 `fdc78f7ce4269ac3535e54ed3792f5bad72b5f0c` 的 [Actions #40078550291](https://github.com/Grinch27/VRviewer/actions/runs/40078550291) 已成功，只有 runner-image 和 APK build 两个 Job。Gradle 日志确认执行了 assembleDebug/assembleRelease，没有执行测试任务；本轮没有功能测试、模拟器、测试 APK 或测试报告。assembleRelease 自带的 lintVital 构建检查由 AGP 默认执行，不是独立测试环节。
+
+已下载并核对两份压缩包与 SHA256SUMS：
+
+| 产物 | APK 字节数 | APK SHA256 |
+| --- | ---: | --- |
+| VRviewer-debug.apk | 14,811,254 | 6eeec612281979c87b027fcf5fec4cf52411dcab97ce593ba6bad804321cc36f |
+| VRviewer-release-unsigned.apk | 1,952,993 | d1ae69997a44f6e21c58322325e95b0bed5f2df2306bd0ec714351384bd17ff0 |
+
+构建成功仅说明 APK 已生成，不代表执行或通过了播放测试。
 
 ## 历史验证记录（当前工作流不执行）
 
@@ -79,6 +88,6 @@ Gradle 编译与打包的内置检查按插件默认行为执行。当前没有�
 | HTTPS / HLS / DASH 真实片源 | 模块已集成；端到端真实片源 NOT_TESTED |
 | 实体手机 | 原设备的方向循环仍需安装新版后复测；真实自动旋转、硬解、传感器和温升 NOT_TESTED |
 
-自动测试仅使用人工生成的红/蓝视频，不包含用户媒体。模拟器通过证实了对应版本的 SDR 播放与 GL 选眼链路；球面地标/背面等数学另有 JVM 检查，不能据此认定手机性能、镜片舒适度或所有全景片源均已验收。
+历史测试仅使用人工生成的红/蓝视频，不包含用户媒体。模拟器通过证实了对应版本的 SDR 播放与 GL 选眼链路；球面地标/背面等数学另有 JVM 检查，不能据此认定手机性能、镜片舒适度或所有全景片源均已验收。
 
 设计依据、完整改进清单与设备验收矩阵见 [docs/DESIGN.md](docs/DESIGN.md)。参考 [awara](https://github.com/Grinch27/awara)、[EhViewer](https://github.com/Grinch27/EhViewer)，保留原 GNU GPL v3 许可证，依赖说明见 [NOTICE](NOTICE)。
