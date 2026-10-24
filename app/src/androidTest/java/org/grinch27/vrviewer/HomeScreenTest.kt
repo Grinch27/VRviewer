@@ -55,6 +55,7 @@ class HomeScreenTest {
                     compose.onNodeWithText("左右 SBS").performScrollTo().performClick()
                     assertOrientationUnchanged()
                     compose.onNodeWithText("完成").performScrollTo().performClick()
+                    compose.waitForIdle()
 
                     val previousActivity = compose.activity
                     compose.activityRule.scenario.recreate()
@@ -65,6 +66,7 @@ class HomeScreenTest {
                     compose.onNodeWithText(projection).assertIsSelected()
                     compose.onNodeWithText("左右 SBS").assertIsSelected()
                     compose.onNodeWithText("完成").performScrollTo().performClick()
+                    compose.waitForIdle()
                     assertOrientationUnchanged()
                 }
                 compose.onNodeWithText("返回", substring = false).performClick()
@@ -86,7 +88,8 @@ class HomeScreenTest {
     }
 
     private fun assertNoDisplayOptions() {
-        compose.onNodeWithText("观看设置").assertIsDisplayed()
+        // Scroll state can survive recreation; make the header visible before checking the panel.
+        compose.onNodeWithText("观看设置").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("显示方式").assertDoesNotExist()
         compose.onNodeWithText("单眼窗口").assertDoesNotExist()
         compose.onNodeWithText("双眼分屏").assertDoesNotExist()
