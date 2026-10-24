@@ -1,8 +1,10 @@
-// Verification: real MediaCodec -> SurfaceTexture -> OES shader -> PixelCopy, using generated color fixtures only.
-// Unknowns: emulator results do not establish phone thermals, optical comfort, head tracking or 8K/HDR support.
+// Requirements/verification: one viewport, real decode/GL source selection, and legacy-history migration.
+// Open decisions/research: physical-device sensors, thermals and codec coverage remain unverified.
+// Risks: fixtures are generated media only; migration must preserve progress and ignore old display settings.
 package org.grinch27.vrviewer
 
 import android.graphics.Bitmap
+import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -23,6 +25,8 @@ import org.grinch27.vrviewer.storage.PlaybackStore
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
@@ -47,12 +51,47 @@ class LocalPlaybackTest {
     @Test fun historyPreservesProfileAndProgress() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val store = PlaybackStore(context)
-        val entry = MovieEntry("content://synthetic.test/video", "Generated fixture", 12_345, 100_000, PlaybackProfile(Projection.EQUIRECT_180, StereoLayout.TOP_BOTTOM, DisplayMode.DUAL, true))
+        val entry = MovieEntry("content://synthetic.test/video", "Generated fixture", 12_345, 100_000, PlaybackProfile(projection = Projection.EQUIRECT_180, stereo = StereoLayout.TOP_BOTTOM, rightEye = true))
         store.save(entry)
         val restored = PlaybackStore(context).recent().first { it.uri == entry.uri }
         assertEquals(entry.profile, restored.profile)
         assertEquals(entry.positionMs, restored.positionMs)
         assertEquals(entry.durationMs, restored.durationMs)
+    }
+
+    @Test fun legacyDisplaySettingIsIgnoredWithoutLosingProgressOrSourceEye() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = context.getSharedPreferences("local_playback_v1", Context.MODE_PRIVATE)
+        val previousEntries = preferences.getString("entries", null)
+        val legacy = JSONObject().apply {
+            put("uri", "content://synthetic.test/legacy")
+            put("name", "Legacy generated fixture")
+            put("position", 12_345)
+            put("duration", 100_000)
+            put("projection", "EQUIRECT_360")
+            put("stereo", "LEFT_RIGHT")
+            put("display", "DUAL")
+            put("swap", true)
+        }
+        try {
+            assertTrue(preferences.edit().putString("entries", JSONArray().put(legacy).toString()).commit())
+            val store = PlaybackStore(context)
+            val restored = store.recent().single()
+            assertEquals(12_345L, restored.positionMs)
+            assertEquals(100_000L, restored.durationMs)
+            assertEquals(Projection.EQUIRECT_360, restored.profile.projection)
+            assertEquals(StereoLayout.LEFT_RIGHT, restored.profile.stereo)
+            assertTrue(restored.profile.rightEye)
+            store.save(restored)
+            val rewritten = JSONArray(preferences.getString("entries", "[]")).getJSONObject(0)
+            assertFalse(rewritten.has("display"))
+            assertFalse(rewritten.has("swap"))
+            assertTrue(rewritten.getBoolean("rightEye"))
+        } finally {
+            val restore = preferences.edit()
+            if (previousEntries == null) restore.remove("entries") else restore.putString("entries", previousEntries)
+            assertTrue(restore.commit())
+        }
     }
 
     @Test fun sideBySideFramesKeepEyesSeparate() = verifyPackedPlayback("sbs.mp4", StereoLayout.LEFT_RIGHT)
@@ -71,7 +110,7 @@ class LocalPlaybackTest {
         var videoReady = false
         var controllerReady = false
         var saved: MovieEntry? = null
-        var base = PlaybackProfile(stereo = layout, display = DisplayMode.DUAL)
+        var base = PlaybackProfile(stereo = layout)
         val decodedWidth = if (layout == StereoLayout.TOP_BOTTOM) 160 else 320
         val decodedHeight = if (layout == StereoLayout.TOP_BOTTOM) 320 else 160
         try {
@@ -86,16 +125,16 @@ class LocalPlaybackTest {
                 video.onResume()
                 controller.start()
             }
-            assertEyeColors(scenario, video, dual = true, swapped = false)
-            base = base.copy(display = DisplayMode.SINGLE)
+            assertSourceColor(scenario, video, rightEye = false)
+            base = base.copy(rightEye = true)
             scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
-            assertEyeColors(scenario, video, dual = false, swapped = false)
-            base = base.copy(swapEyes = true)
+            assertSourceColor(scenario, video, rightEye = true)
+            base = base.copy(projection = Projection.EQUIRECT_180)
             scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f) }
-            assertEyeColors(scenario, video, dual = false, swapped = true)
-            base = base.copy(projection = Projection.EQUIRECT_360, display = DisplayMode.DUAL)
+            assertSourceColor(scenario, video, rightEye = true)
+            base = base.copy(projection = Projection.EQUIRECT_360)
             scenario.onActivity { controller.updateProfile(base); video.update(base, decodedWidth, decodedHeight, 1f); controller.seek(1_000) }
-            assertEyeColors(scenario, video, dual = true, swapped = true)
+            assertSourceColor(scenario, video, rightEye = true)
             scenario.onActivity {
                 controller.tick()
                 assertNull(controller.status.error)
@@ -119,7 +158,7 @@ class LocalPlaybackTest {
         }
     }
 
-    private fun assertEyeColors(scenario: ActivityScenario<MainActivity>, video: VrVideoView, dual: Boolean, swapped: Boolean) {
+    private fun assertSourceColor(scenario: ActivityScenario<MainActivity>, video: VrVideoView, rightEye: Boolean) {
         val deadline = SystemClock.elapsedRealtime() + 15_000
         var matched = false
         while (!matched && SystemClock.elapsedRealtime() < deadline) {
@@ -145,11 +184,13 @@ class LocalPlaybackTest {
                     val blueChannel = android.graphics.Color.blue(color)
                     return if (blue) blueChannel > 120 && red < 90 else red > 120 && blueChannel < 90
                 }
-                matched = if (dual) isExpected(image.width / 4, swapped) && isExpected(image.width * 3 / 4, !swapped) else isExpected(image.width / 2, swapped)
+                val center = image.width / 2
+                val offset = minOf(image.width, image.height) / 4
+                matched = intArrayOf(center - offset, center, center + offset).all { isExpected(it, rightEye) }
             }
             image?.recycle()
             if (!matched) SystemClock.sleep(100)
         }
-        assertTrue("Decoded ${if (dual) "two-eye" else "single-eye"} output must preserve source eye colors", matched)
+        assertTrue("One viewport must show only the selected source eye across the video", matched)
     }
 }

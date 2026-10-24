@@ -1,8 +1,8 @@
-// Open decisions: headset gaze selection, calibrated optics and spatial subtitles are future milestones.
-// Risks/verification: recreation, background silence, Surface lifetime, mirrored transport and unknown-duration seeking.
+// Requirements: one viewing window and transport panel; never request or restore Activity orientation.
+// Open decisions/research: physical-device sensors and subtitles remain separate acceptance items.
+// Risks/verification: settings, recreation, background silence, Surface lifetime and unknown-duration seeking.
 package org.grinch27.vrviewer.ui
 
-import android.content.pm.ActivityInfo
 import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
@@ -25,7 +25,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import org.grinch27.vrviewer.MainActivity
-import org.grinch27.vrviewer.core.DisplayMode
 import org.grinch27.vrviewer.playback.PlaybackController
 import org.grinch27.vrviewer.playback.PlaybackStatus
 import org.grinch27.vrviewer.render.VrVideoView
@@ -79,11 +78,6 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
     LaunchedEffect(profile.headTracking, profile.projection) {
         video.updateTracking(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
-    DisposableEffect(profile.display) {
-        val previous = activity.requestedOrientation
-        activity.requestedOrientation = if (profile.display == DisplayMode.DUAL) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        onDispose { activity.requestedOrientation = previous }
-    }
     DisposableEffect(activity) {
         val insets = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         insets.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -105,16 +99,11 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
         AndroidView(factory = { video }, modifier = Modifier.fillMaxSize())
         if (status.buffering) CircularProgressIndicator(Modifier.align(Alignment.Center).size(36.dp))
         if (controls || status.error != null || !status.playing) {
-            val dual = profile.display == DisplayMode.DUAL
-            Row(Modifier.fillMaxSize().safeDrawingPadding()) {
-                repeat(if (dual) 2 else 1) {
-                    PlayerChrome(
-                        entry.name, status, dual, Modifier.weight(1f).fillMaxHeight(),
-                        onExit, { settings = true }, controller::togglePlay, controller::seek,
-                        { controller.seekBy(it) }, { video.recenter() }, controller::retry,
-                    )
-                }
-            }
+            PlayerChrome(
+                entry.name, status, Modifier.fillMaxSize().safeDrawingPadding(),
+                onExit, { settings = true }, controller::togglePlay, controller::seek,
+                { controller.seekBy(it) }, { video.recenter() }, controller::retry,
+            )
         }
         if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, controller::updateProfile, controller::speed, controller::loop, video::recenter) { settings = false }
     }
@@ -124,7 +113,6 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
 private fun PlayerChrome(
     name: String,
     status: PlaybackStatus,
-    compact: Boolean,
     modifier: Modifier,
     onExit: () -> Unit,
     onSettings: () -> Unit,
@@ -135,7 +123,7 @@ private fun PlayerChrome(
     onRetry: () -> Unit,
 ) {
     var seekFraction by remember { mutableStateOf<Float?>(null) }
-    Column(modifier.padding(if (compact) 6.dp else 12.dp), verticalArrangement = Arrangement.SpaceBetween) {
+    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
         Row(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = .65f)), verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onExit) { Text("返回") }
             Text(name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge, color = Color.White)
@@ -164,7 +152,7 @@ private fun PlayerChrome(
                 TextButton(onClick = { onSeekBy(-10_000) }) { Text("−10秒") }
                 FilledTonalButton(onClick = onPlay, enabled = status.error == null) { Text(if (status.playing) "暂停" else if (status.ended) "重播" else "播放") }
                 TextButton(onClick = { onSeekBy(10_000) }) { Text("+10秒") }
-                if (!compact) TextButton(onClick = onRecenter) { Text("回正") }
+                TextButton(onClick = onRecenter) { Text("回正") }
             }
         }
     }

@@ -1,5 +1,5 @@
 // Open decisions: headset optical calibration, HDR and codec matrix need physical devices.
-// Optimization: a single decoder feeds both eyes; HTTP(S)/HLS/DASH use the same playback pipeline.
+// Optimization: one decoder feeds one viewport; HTTP(S)/HLS/DASH use the same playback pipeline.
 // Risks/verification: assemble both variants, lint, unit tests and connected smoke tests.
 plugins {
     alias(libs.plugins.android.application)
@@ -14,8 +14,8 @@ android {
         applicationId = "org.grinch27.vrviewer"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { compose = true }

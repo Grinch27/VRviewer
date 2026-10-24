@@ -1,12 +1,12 @@
-// Open decisions: folder libraries and a Room migration belong to a later, bounded library feature.
-// Risks/verification: revoked URI grants, malformed preferences and process death; never resolve URI to a raw path.
+// Requirements: preserve local progress while ignoring removed display settings in older records.
+// Open decisions/research: invalid-grant cleanup and larger persistence migrations remain deferred.
+// Risks/verification: legacy eye choice, malformed preferences and process death; never resolve URI to a raw path.
 package org.grinch27.vrviewer.storage
 
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
-import org.grinch27.vrviewer.core.DisplayMode
 import org.grinch27.vrviewer.core.MediaUrl
 import org.grinch27.vrviewer.core.PlaybackProfile
 import org.grinch27.vrviewer.core.Projection
@@ -68,8 +68,7 @@ class PlaybackStore(context: Context) {
         put("updated", entry.updatedAt)
         put("projection", entry.profile.projection.name)
         put("stereo", entry.profile.stereo.name)
-        put("display", entry.profile.display.name)
-        put("swap", entry.profile.swapEyes)
+        put("rightEye", entry.profile.rightEye)
         put("half", entry.profile.halfPacked)
         put("fov", entry.profile.normalized().fieldOfView.toDouble())
         put("head", entry.profile.headTracking)
@@ -84,8 +83,8 @@ class PlaybackStore(context: Context) {
         profile = PlaybackProfile(
             projection = runCatching { Projection.valueOf(json.optString("projection")) }.getOrDefault(Projection.FLAT),
             stereo = runCatching { StereoLayout.valueOf(json.optString("stereo")) }.getOrDefault(StereoLayout.MONO),
-            display = runCatching { DisplayMode.valueOf(json.optString("display")) }.getOrDefault(DisplayMode.SINGLE),
-            swapEyes = json.optBoolean("swap"),
+            // Old display fields are ignored; the former swap flag still selects the same source eye.
+            rightEye = json.optBoolean("rightEye", json.optBoolean("swap")),
             halfPacked = json.optBoolean("half"),
             fieldOfView = json.optDouble("fov", 80.0).toFloat(),
             headTracking = json.optBoolean("head"),

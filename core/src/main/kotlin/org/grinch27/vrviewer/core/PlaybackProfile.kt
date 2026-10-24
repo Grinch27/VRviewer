@@ -1,16 +1,15 @@
-// Open decisions: metadata-based projection detection and calibrated headset profiles are deferred.
-// Risks/verification: projection, source packing and output view MUST remain independent.
+// Requirements: one viewport; source eye selection remains available for packed videos.
+// Open decisions/research: metadata-based projection detection and sensor calibration are deferred.
+// Risks/verification: source packing stays independent of projection; no display mode or orientation policy.
 package org.grinch27.vrviewer.core
 
 enum class Projection(val shaderId: Int) { FLAT(0), EQUIRECT_180(1), EQUIRECT_360(2) }
 enum class StereoLayout { MONO, LEFT_RIGHT, TOP_BOTTOM }
-enum class DisplayMode { SINGLE, DUAL }
 
 data class PlaybackProfile(
     val projection: Projection = Projection.FLAT,
     val stereo: StereoLayout = StereoLayout.MONO,
-    val display: DisplayMode = DisplayMode.SINGLE,
-    val swapEyes: Boolean = false,
+    val rightEye: Boolean = false,
     val halfPacked: Boolean = false,
     val fieldOfView: Float = 80f,
     val headTracking: Boolean = false,
@@ -22,13 +21,12 @@ data class EyeRegion(val left: Float, val top: Float, val width: Float, val heig
 
 object ProjectionMath {
     /** Coordinates use the logical video image: origin at top left, before SurfaceTexture transform. */
-    fun eyeRegion(layout: StereoLayout, eye: Int, swapped: Boolean = false): EyeRegion {
+    fun eyeRegion(layout: StereoLayout, eye: Int): EyeRegion {
         require(eye in 0..1)
-        val selected = if (swapped) 1 - eye else eye
         return when (layout) {
             StereoLayout.MONO -> EyeRegion(0f, 0f, 1f, 1f)
-            StereoLayout.LEFT_RIGHT -> EyeRegion(selected * .5f, 0f, .5f, 1f)
-            StereoLayout.TOP_BOTTOM -> EyeRegion(0f, selected * .5f, 1f, .5f)
+            StereoLayout.LEFT_RIGHT -> EyeRegion(eye * .5f, 0f, .5f, 1f)
+            StereoLayout.TOP_BOTTOM -> EyeRegion(0f, eye * .5f, 1f, .5f)
         }
     }
 

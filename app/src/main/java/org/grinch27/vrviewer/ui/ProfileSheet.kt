@@ -1,5 +1,6 @@
-// Open decisions: auto-detection is advisory only; fisheye/cubemap/mesh metadata are not equirectangular VR180.
-// Risk/verification: explicit independent modes and half-packing aspect avoid silent stereoscopic mistakes.
+// Requirements: projection and source packing controls; display-mode selection has been removed.
+// Open decisions/research: source auto-detection and non-equirectangular projections are deferred.
+// Risks/verification: source eye selection, half-packing aspect and settings must not change Activity orientation.
 package org.grinch27.vrviewer.ui
 
 import androidx.compose.foundation.horizontalScroll
@@ -11,7 +12,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.grinch27.vrviewer.core.DisplayMode
 import org.grinch27.vrviewer.core.PlaybackProfile
 import org.grinch27.vrviewer.core.Projection
 import org.grinch27.vrviewer.core.StereoLayout
@@ -51,10 +51,8 @@ fun ProfileSheet(
             ChoiceRow(Projection.entries, profile.projection, ::projectionLabel) { onProfile(profile.copy(projection = it)) }
             Text("片源排布", style = MaterialTheme.typography.titleSmall)
             ChoiceRow(StereoLayout.entries, profile.stereo, ::stereoLabel) { onProfile(profile.copy(stereo = it)) }
-            Text("显示方式", style = MaterialTheme.typography.titleSmall)
-            ChoiceRow(DisplayMode.entries, profile.display, { if (it == DisplayMode.SINGLE) "单眼窗口" else "双眼分屏" }) { onProfile(profile.copy(display = it)) }
             if (profile.stereo != StereoLayout.MONO) {
-                ToggleRow(if (profile.display == DisplayMode.SINGLE) "单眼取右眼" else "交换左右眼", profile.swapEyes) { onProfile(profile.copy(swapEyes = it)) }
+                ToggleRow("使用右眼画面", profile.rightEye) { onProfile(profile.copy(rightEye = it)) }
                 if (profile.projection == Projection.FLAT) ToggleRow("半宽 / 半高压缩片源", profile.halfPacked) { onProfile(profile.copy(halfPacked = it)) }
             }
             if (profile.projection != Projection.FLAT) {
@@ -67,8 +65,7 @@ fun ProfileSheet(
             Text("播放速度", style = MaterialTheme.typography.titleSmall)
             ChoiceRow(listOf(.5f, 1f, 1.25f, 1.5f, 2f), status.speed, { "${it}×" }, onSpeed)
             ToggleRow("单片循环", status.loop, onChange = onLoop)
-            Text("单目视频分屏后仍是单目内容。双眼分屏暂未接入镜片畸变校正、瞳距和头显参数；请在摘下眼镜后调整设置。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("仅支持等距柱状投影，不包含鱼眼、立方体或特殊网格。左右默认左图为左眼，上下默认上图为左眼。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("180°/360°仅支持等距柱状投影，不包含鱼眼、立方体或特殊网格。SBS 默认显示左图，TB 默认显示上图，可切换使用右眼画面。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("完成") }
         }
     }

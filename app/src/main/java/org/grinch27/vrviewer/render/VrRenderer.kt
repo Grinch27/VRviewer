@@ -1,6 +1,6 @@
-// Open decisions: headset optics, mesh metadata, fisheye, cubemaps and HDR need dedicated render backends.
-// Optimization: one OES texture, no CPU frame copies, no per-frame matrix allocation, render only on change.
-// Risks/verification: EGL recreation, eye boundaries, top/bottom origin, viewport aspect and GPU shader precision.
+// Requirements: one full-size viewport; source eye selection does not create a split-screen display.
+// Open decisions/research: mesh metadata, fisheye, cubemaps and HDR need separate validation.
+// Optimization/verification: one OES texture; test EGL recreation, source crop, aspect and shader precision.
 package org.grinch27.vrviewer.render
 
 import android.content.Context
@@ -10,7 +10,6 @@ import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.opengl.Matrix
 import org.grinch27.vrviewer.R
-import org.grinch27.vrviewer.core.DisplayMode
 import org.grinch27.vrviewer.core.PlaybackProfile
 import org.grinch27.vrviewer.core.ProjectionMath
 import java.nio.ByteBuffer
@@ -141,16 +140,11 @@ internal class VrRenderer(
             quad.position(0)
             GLES20.glEnableVertexAttribArray(positionLocation)
             GLES20.glVertexAttribPointer(positionLocation, 2, GLES20.GL_FLOAT, false, 0, quad)
-            val dual = currentProfile.display == DisplayMode.DUAL
-            for (eye in 0 until if (dual) 2 else 1) {
-                val left = if (eye == 0) 0 else width / 2
-                val eyeWidth = if (!dual) width else if (eye == 0) width / 2 else width - width / 2
-                val region = ProjectionMath.eyeRegion(currentProfile.stereo, eye, currentProfile.swapEyes)
-                GLES20.glViewport(left, 0, eyeWidth, height)
-                GLES20.glUniform1f(location("uViewportAspect"), eyeWidth.toFloat() / height)
-                GLES20.glUniform4f(location("uEyeRect"), region.left, region.top, region.width, region.height)
-                GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
-            }
+            val region = ProjectionMath.eyeRegion(currentProfile.stereo, if (currentProfile.rightEye) 1 else 0)
+            GLES20.glViewport(0, 0, width, height)
+            GLES20.glUniform1f(location("uViewportAspect"), width.toFloat() / height)
+            GLES20.glUniform4f(location("uEyeRect"), region.left, region.top, region.width, region.height)
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             GLES20.glDisableVertexAttribArray(positionLocation)
         } catch (_: RuntimeException) {
             failed = true

@@ -12,13 +12,7 @@ class ProjectionMathTest {
         assertEquals(EyeRegion(0f, 0f, 1f, .5f), ProjectionMath.eyeRegion(StereoLayout.TOP_BOTTOM, 0))
         assertEquals(EyeRegion(0f, .5f, 1f, .5f), ProjectionMath.eyeRegion(StereoLayout.TOP_BOTTOM, 1))
     }
-    @Test fun swappingAlsoSelectsRightEyeInSingleView() {
-        for (layout in StereoLayout.entries) {
-            assertEquals(ProjectionMath.eyeRegion(layout, 1), ProjectionMath.eyeRegion(layout, 0, true))
-            assertEquals(ProjectionMath.eyeRegion(layout, 0), ProjectionMath.eyeRegion(layout, 1, true))
-        }
-    }
-    @Test fun monoDoesNotBecomeStereoscopic() {
+    @Test fun monoUsesWholeFrameForEitherSourceEye() {
         assertEquals(ProjectionMath.eyeRegion(StereoLayout.MONO, 0), ProjectionMath.eyeRegion(StereoLayout.MONO, 1))
     }
     @Test fun fullAndHalfPackingRestoreFlatVideoAspect() {
