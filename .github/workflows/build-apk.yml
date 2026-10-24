@@ -1,7 +1,9 @@
 name: Android APK
 
-# Open decisions: optical/physical-device acceptance and production signing remain separate milestones.
-# Verification: JVM tests, Android lint, debug/release assembly and generated-fixture emulator playback.
+# Requirements: follow awara's assemble-and-upload flow; no standalone test or lint stages.
+# Open decisions/research: physical-device acceptance and stable signing remain separate milestones.
+# Risks/verification: packaging success is not runtime acceptance; require APKs and SHA256 manifests.
+# Reference: https://github.com/Grinch27/awara/blob/main/.github/workflows/build-apk.yml
 # GitHub Actions workflow syntax reference:
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/workflow-syntax
 # https://docs.github.com/zh/actions/reference/workflows-and-actions/metadata-syntax#runs-for-composite-actions
@@ -45,7 +47,7 @@ jobs:
         uses: Grinch27/github-actions/.github/actions/resolve-runner-image@main
 
   build:
-    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - APK and checks
+    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - APK build
     needs: runner-image
     runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
     timeout-minutes: 30
@@ -63,72 +65,28 @@ jobs:
         uses: android-actions/setup-android@main
         with:
           packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
-      - name: Compile and unit tests
-        run: ./gradlew --no-daemon --console=plain :core:test :app:testDebugUnitTest :app:compileReleaseKotlin :app:compileDebugAndroidTestKotlin
-      - name: Lint and assemble APKs
-        run: ./gradlew --no-daemon --console=plain :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
-      - name: Prepare installable preview APK
+      - name: Build APKs
+        run: ./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug :app:assembleRelease
+      - name: Prepare APK artifacts
         run: |
           set -euo pipefail
-          install -D app/build/outputs/apk/debug/app-debug.apk build/delivery/VRviewer-debug.apk
-          (cd build/delivery && sha256sum VRviewer-debug.apk > SHA256SUMS)
-      - name: Upload preview APK
+          install -D app/build/outputs/apk/debug/app-debug.apk build/delivery/debug/VRviewer-debug.apk
+          install -D app/build/outputs/apk/release/app-release-unsigned.apk build/delivery/release/VRviewer-release-unsigned.apk
+          (cd build/delivery/debug && sha256sum VRviewer-debug.apk > SHA256SUMS)
+          (cd build/delivery/release && sha256sum VRviewer-release-unsigned.apk > SHA256SUMS)
+      - name: Upload debug APK
         uses: actions/upload-artifact@main
         with:
           name: VRviewer-debug-${{ github.sha }}
-          path: build/delivery/
+          path: build/delivery/debug/
           if-no-files-found: error
+          compression-level: 9
           retention-days: 14
-      - name: Upload verification reports
-        if: ${{ !cancelled() }}
+      - name: Upload unsigned release APK
         uses: actions/upload-artifact@main
         with:
-          name: verification-${{ github.sha }}
-          path: |
-            core/build/reports/tests/
-            core/build/test-results/
-            app/build/reports/
-          if-no-files-found: warn
-          retention-days: 14
-
-  playback-smoke:
-    name: ${{ needs.runner-image.outputs.RUNNER_IMAGE }} - Android 35 playback
-    needs: runner-image
-    runs-on: ${{ needs.runner-image.outputs.RUNNER_IMAGE }}
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@main
-        with:
-          persist-credentials: false
-      - name: Set up Java
-        uses: actions/setup-java@main
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@main
-        with:
-          packages: 'platform-tools platforms;android-36 build-tools;36.0.0 emulator system-images;android-35;google_apis;x86_64'
-      - name: Install run_sudo
-        uses: Grinch27/github-actions/.github/actions/run-sudo@main
-      - name: Install emulator runtime and allow KVM
-        run: |
-          set -euo pipefail
-          run_sudo apt-get update
-          run_sudo apt-get install -y --no-install-recommends libpulse0
-          test -c /dev/kvm
-          run_sudo chown "$(id -u):$(id -g)" /dev/kvm
-      - name: Decode and verify stereo output
-        run: bash scripts/ci-playback.sh
-      - name: Upload playback test reports
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@main
-        with:
-          name: playback-smoke-${{ github.sha }}
-          path: |
-            app/build/reports/androidTests/
-            app/build/outputs/androidTest-results/
-            build/emulator/
-          if-no-files-found: warn
+          name: VRviewer-release-unsigned-${{ github.sha }}
+          path: build/delivery/release/
+          if-no-files-found: error
+          compression-level: 9
           retention-days: 14

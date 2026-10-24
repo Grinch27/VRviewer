@@ -517,14 +517,14 @@ https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workf
 - 当前只验证 SDR 链路；HDR 在支持正确色调映射前应明确拒绝。鱼眼、立方体、特殊网格不属于等距柱状模式。
 - 播放器调用在主线程，GL 在渲染线程，元数据 I/O 在后台；离开前台释放播放器并停止传感器。
 - 新工作流遵守 Part I，先建立 Non-container 基础路线，暂不增加 Container。
-- 依赖集中于版本目录并固定版本；修改后执行 JVM、lint、debug/release 和 instrumentation APK 构建。
+- 依赖集中于版本目录并固定版本。用户在 2026-10-24 明确工作流参考 awara，仅执行 Debug/Release assemble 与 APK/SHA256 上传；不设单元测试、instrumentation、模拟器、独立 lint 或测试报告环节。保留测试源码仅供用户另行要求时手动诊断，不自动恢复测试流程。
 - 保留已有 GPL v3 LICENSE；不复制参考项目的签名材料、账号数据或品牌。
 
 ## 3. 验证与授权
 
 - 本轮明确授权本仓库源码、文档、测试、构建工作流与 main 提交；允许提交触发对应 CI 验证。
 - awara 与 EhViewer 只读。未经新授权不改参考仓库、不部署到用户手机、不改设备设置、不配置生产签名、不发商店或收费服务。
-- 自动测试媒体只使用人工生成测试卡，禁止上传用户视频。
+- 如用户另行要求手动诊断，测试媒体仅使用人工生成测试卡；当前 Actions 不运行测试，禁止上传用户视频。
 - 必须区分静态检查、完整 APK 构建、模拟器实际播放、手机与光学验证。未执行项标记 NOT_TESTED。
 - Part I 通用规则保持原文；Part II 独立维护。不要自行添加规范同步脚本或定时同步工作流。
 

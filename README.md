@@ -40,37 +40,29 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 基线：JDK 17、Gradle 8.13、Android SDK 36、Build Tools 36.0.0，最低 Android 8.0 / API 26，target SDK 36。依赖固定在版本目录，Compose BOM 2026.03.00 与此基线匹配。
 
 ~~~bash
-./gradlew --no-daemon :core:test :app:testDebugUnitTest :app:lintDebug :app:lintRelease :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+./gradlew --no-daemon --console=plain --stacktrace :app:assembleDebug :app:assembleRelease
 ~~~
 
-连接测试设备/模拟器：
-
-~~~bash
-./gradlew --no-daemon :app:connectedDebugAndroidTest
-~~~
-
-[Android APK 工作流](https://github.com/Grinch27/VRviewer/actions/workflows/build-apk.yml) 使用 Non-container 路线、共享动态 runner-image 和已检查的 main 分支 Actions。输出：
+[Android APK 工作流](https://github.com/Grinch27/VRviewer/actions/workflows/build-apk.yml) 参考 [awara 的原生 APK 构建](https://github.com/Grinch27/awara/blob/main/.github/workflows/build-apk.yml)，仅保留环境准备 → Debug/Release 打包 → 上传 APK。使用 Non-container、共享动态 runner-image 和已核验的 main 分支 Actions。
 
 - 可安装调试 APK：app/build/outputs/apk/debug/app-debug.apk。
-- Release 构建验证：app/build/outputs/apk/release/app-release-unsigned.apk，未配置生产签名。
-- Actions 上传 APK、SHA256、测试报告，不自动发 Release 或应用商店。
+- 未签名 Release APK：app/build/outputs/apk/release/app-release-unsigned.apk，产物名 VRviewer-release-unsigned-<源码提交>；需自行签名后安装。
+- Actions 分别上传调试 APK、未签名 Release APK 与各自 SHA256SUMS；不运行单元测试、instrumentation、模拟器或独立 lint 步骤，不上传测试报告，不发 GitHub Release 或应用商店。
 - 调试签名由构建环境生成。本次 APK 与上一轮 0.1.0 预览证书已比对，签名不同，不能直接覆盖该旧包；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；本轮未配置稳定签名。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
 
-已验证 **0.1.1**：[下载 APK ZIP](https://github.com/Grinch27/VRviewer/actions/runs/40060583916/artifacts/12546299987) · [Actions 完整通过](https://github.com/Grinch27/VRviewer/actions/runs/40060583916) · [播放报告与首页截图](https://github.com/Grinch27/VRviewer/actions/runs/40060583916/artifacts/12547512139)。解压后安装 `VRviewer-debug.apk`（14,811,254 字节）。
+本轮仅构建工作流已完成修改，待 Actions 实际打包确认；新的下载链接和校验值将在构建完成后记录。应用功能与版本保持 0.1.1。
 
-在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`，同目录的 `SHA256SUMS` 可用于校验。产物与报告保留 14 天；过期后可手动运行工作流重新构建。
+在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`。未签名 Release 单独位于 `VRviewer-release-unsigned-<源码提交>`，每份压缩包均含 `SHA256SUMS`。产物保留 14 天，过期后可手动运行工作流重建。
 
-构建与 Android 35 模拟器校验并行运行。模拟器使用官方 SDK 命令、KVM 与 SwiftShader，显式安装 Ubuntu 所需的 `libpulse0`；报告包含启动/解码日志。测试结束后重新安装调试 APK，再截取实际首页。
+Gradle 编译与打包的内置检查按插件默认行为执行。当前没有测试 Job、测试 APK 构建、模拟器/KVM/音频运行库安装或自动截图。测试源码保留为手动诊断材料，只有用户另行要求时才执行。
 
-本次预览 APK 的 SHA256：
+## 本轮构建记录
 
-~~~text
-acd17263187665cdc6b3d53a22b86a747d9e48b0ec65cfbae0579b79eeaac1d5  VRviewer-debug.apk
-~~~
+待仅构建工作流的实际运行结果；构建成功仅说明 APK 已生成，不代表执行或通过了播放测试。
 
-## 验证记录
+## 历史验证记录（当前工作流不执行）
 
-已核验 0.1.1 源码 `28f3298be697e5da3e9f38378caf1169fdcbf0ee` 的 [Actions #40060583916](https://github.com/Grinch27/VRviewer/actions/runs/40060583916)：三个 Job 均成功。已下载 XML 核对测试数、核对安装包与校验清单，并检查 APK DEX 不再包含旧选项文字和项目原显示模式类型。
+以下为此前已完成的历史结果，不属于本轮仅构建流程。已核验 0.1.1 源码 `28f3298be697e5da3e9f38378caf1169fdcbf0ee` 的 [Actions #40060583916](https://github.com/Grinch27/VRviewer/actions/runs/40060583916)：三个 Job 均成功。已下载 XML 核对测试数、核对安装包与校验清单，并检查 APK DEX 不再包含旧选项文字和项目原显示模式类型。
 
 | 验证 | 已确认结果 |
 | --- | --- |
@@ -82,7 +74,7 @@ acd17263187665cdc6b3d53a22b86a747d9e48b0ec65cfbae0579b79eeaac1d5  VRviewer-debug
 | 播放与方向回归 | 实际播放器开启设置并连续重建 Activity 两次；无旧显示选项，不覆盖宿主请求方向，投影与片源排布恢复；返回后首页仍恰好两个入口 |
 | 历史兼容 | 旧 display=DUAL 被忽略；保留进度、投影、SBS/TB 和源眼；保存后移除旧 display/swap 字段 |
 | 实际视频链 | 生成的本地/回环 HTTP H.264 SDR 测试卡经 MediaCodec、OES、PixelCopy，单视口源眼选择、平面/180°/360°、seek 与停止保存均通过 |
-| 完整工作流 | 全部通过；测试后重新安装 APK 并输出首页截图、启动/解码日志 |
+| 历史工作流 | 当时全部通过；其模拟器、测试报告与截图环节现已移除 |
 | SAF / 存储提供方 | 不同文件管理器、SD 卡、撤权场景 NOT_TESTED |
 | HTTPS / HLS / DASH 真实片源 | 模块已集成；端到端真实片源 NOT_TESTED |
 | 实体手机 | 原设备的方向循环仍需安装新版后复测；真实自动旋转、硬解、传感器和温升 NOT_TESTED |
