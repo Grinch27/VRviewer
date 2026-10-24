@@ -54,27 +54,38 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 - 可安装调试 APK：app/build/outputs/apk/debug/app-debug.apk。
 - Release 构建验证：app/build/outputs/apk/release/app-release-unsigned.apk，未配置生产签名。
 - Actions 上传 APK、SHA256、测试报告，不自动发 Release 或应用商店。
-- 调试签名由构建环境生成，不能保证不同环境的调试 APK 能覆盖安装；正式分发仍需独立稳定签名。
+- 调试签名由构建环境生成。本次 APK 与上一轮 0.1.0 预览证书已比对，签名不同，不能直接覆盖该旧包；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；本轮未配置稳定签名。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
 
-0.1.1 删除功能的源码已完成修改，当前构建与回归结果待本轮 Actions 核验。
+已验证 **0.1.1**：[下载 APK ZIP](https://github.com/Grinch27/VRviewer/actions/runs/40060583916/artifacts/12546299987) · [Actions 完整通过](https://github.com/Grinch27/VRviewer/actions/runs/40060583916) · [播放报告与首页截图](https://github.com/Grinch27/VRviewer/actions/runs/40060583916/artifacts/12547512139)。解压后安装 `VRviewer-debug.apk`（14,811,254 字节）。
 
 在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`，同目录的 `SHA256SUMS` 可用于校验。产物与报告保留 14 天；过期后可手动运行工作流重新构建。
 
 构建与 Android 35 模拟器校验并行运行。模拟器使用官方 SDK 命令、KVM 与 SwiftShader，显式安装 Ubuntu 所需的 `libpulse0`；报告包含启动/解码日志。测试结束后重新安装调试 APK，再截取实际首页。
 
+本次预览 APK 的 SHA256：
+
+~~~text
+acd17263187665cdc6b3d53a22b86a747d9e48b0ec65cfbae0579b79eeaac1d5  VRviewer-debug.apk
+~~~
+
 ## 验证记录
 
-本轮 0.1.1 删除显示方式与方向控制，结果待 Actions 实测；不可沿用上一版结果作为本轮成功依据。
+已核验 0.1.1 源码 `28f3298be697e5da3e9f38378caf1169fdcbf0ee` 的 [Actions #40060583916](https://github.com/Grinch27/VRviewer/actions/runs/40060583916)：三个 Job 均成功。已下载 XML 核对测试数、核对安装包与校验清单，并检查 APK DEX 不再包含旧选项文字和项目原显示模式类型。
 
-| 验证 | 当前状态 |
+| 验证 | 已确认结果 |
 | --- | --- |
-| 静态检查 | 应用源码无 DisplayMode、分屏绘制或 requestedOrientation；Manifest 不锁方向 |
-| JVM / lint / APK | 待本轮 Actions 核验 |
-| Android 35 回归 | 待验证单视口选眼、180°/360°、旧历史兼容、实际播放器设置与两次 Activity 重建 |
-| 上一版基线 | 0.1.0 源码 483217e，[Actions #40042072932](https://github.com/Grinch27/VRviewer/actions/runs/40042072932) 为历史 14 项 JVM / 6 项模拟器通过 |
+| 删除范围 | 设置选项、显示模式类型/字段、分屏绘制、重复控制栏、方向请求与销毁恢复均已删除；Manifest 不锁方向 |
+| JVM | 13 项通过，0 失败、0 错误、0 跳过；投影/源眼/比例/续播 10 项，URL 3 项 |
+| Android lint | Debug、Release 各 0 错误、15 警告，主要为版本更新提示与 KTX 建议 |
+| APK | Debug、启用 R8 的未签名 Release、instrumentation APK 均构建成功 |
+| Android 35 / x86_64 | 8 项通过，0 失败、0 错误、0 跳过 |
+| 播放与方向回归 | 实际播放器开启设置并连续重建 Activity 两次；无旧显示选项，不覆盖宿主请求方向，投影与片源排布恢复；返回后首页仍恰好两个入口 |
+| 历史兼容 | 旧 display=DUAL 被忽略；保留进度、投影、SBS/TB 和源眼；保存后移除旧 display/swap 字段 |
+| 实际视频链 | 生成的本地/回环 HTTP H.264 SDR 测试卡经 MediaCodec、OES、PixelCopy，单视口源眼选择、平面/180°/360°、seek 与停止保存均通过 |
+| 完整工作流 | 全部通过；测试后重新安装 APK 并输出首页截图、启动/解码日志 |
 | SAF / 存储提供方 | 不同文件管理器、SD 卡、撤权场景 NOT_TESTED |
 | HTTPS / HLS / DASH 真实片源 | 模块已集成；端到端真实片源 NOT_TESTED |
-| 实体手机 | 用户报告旧显示方式触发方向循环；删除后仍需在原设备复测，硬解、传感器与温升 NOT_TESTED |
+| 实体手机 | 原设备的方向循环仍需安装新版后复测；真实自动旋转、硬解、传感器和温升 NOT_TESTED |
 
 自动测试仅使用人工生成的红/蓝视频，不包含用户媒体。模拟器通过证实了对应版本的 SDR 播放与 GL 选眼链路；球面地标/背面等数学另有 JVM 检查，不能据此认定手机性能、镜片舒适度或所有全景片源均已验收。
 
