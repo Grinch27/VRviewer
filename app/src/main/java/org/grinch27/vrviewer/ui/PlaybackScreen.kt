@@ -1,6 +1,6 @@
 // Requirements: one viewing window with bottom-only controls; never request or restore Activity orientation.
-// Open decisions/research: physical-device sensors and subtitles remain separate acceptance items.
-// Risks/verification: settings, recreation, background silence, Surface lifetime and unknown-duration seeking.
+// Open decisions/research: multi-touch feel and physical-device sensors need device feedback.
+// Risks/verification: preserve zoom/rotation across recreation; keep player and Surface lifetimes separate.
 package org.grinch27.vrviewer.ui
 
 import android.view.KeyEvent
@@ -14,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -25,6 +26,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import kotlinx.coroutines.delay
 import org.grinch27.vrviewer.MainActivity
+import org.grinch27.vrviewer.core.ProjectionMath
 import org.grinch27.vrviewer.playback.PlaybackController
 import org.grinch27.vrviewer.playback.PlaybackStatus
 import org.grinch27.vrviewer.render.VrVideoView
@@ -38,8 +40,13 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
     val profile = controller.profile
     var controls by remember { mutableStateOf(true) }
     var settings by remember { mutableStateOf(false) }
+    var viewportAspect by remember { mutableFloatStateOf(1f) }
     val video = remember(controller) {
-        VrVideoView(activity, controller::attachSurface, controller::reportError, { controls = !controls }, controller::togglePlay) { fov -> controller.updateProfile(controller.profile.copy(fieldOfView = fov)) }
+        VrVideoView(activity, controller::attachSurface, controller::reportError, { controls = !controls }, controller::togglePlay, controller::updateProfile)
+    }
+    val recenter = {
+        controller.updateProfile(controller.profile.copy(rotationDegrees = 0f, panX = 0f, panY = 0f))
+        video.recenter()
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     SideEffect {
@@ -96,16 +103,24 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
     BackHandler { if (settings) settings = false else onExit() }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
-        AndroidView(factory = { video }, modifier = Modifier.fillMaxSize())
+        AndroidView(factory = { video }, modifier = Modifier.fillMaxSize().onSizeChanged {
+            if (it.width > 0 && it.height > 0) {
+                viewportAspect = it.width.toFloat() / it.height
+                val current = controller.profile
+                if (current.horizontalFieldOfView == null) {
+                    controller.updateProfile(current.copy(horizontalFieldOfView = ProjectionMath.horizontalFov(current, viewportAspect)))
+                }
+            }
+        })
         if (status.buffering) CircularProgressIndicator(Modifier.align(Alignment.Center).size(36.dp))
         if (controls || status.error != null || !status.playing) {
             PlayerChrome(
                 entry.name, status, Modifier.fillMaxSize().safeDrawingPadding(),
                 onExit, { settings = true }, controller::togglePlay, controller::seek,
-                { video.recenter() }, controller::retry,
+                controller::retry,
             )
         }
-        if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, controller::updateProfile, controller::speed, controller::loop, video::recenter) { settings = false }
+        if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, viewportAspect, controller::updateProfile, controller::speed, controller::loop, recenter) { settings = false }
     }
 }
 
@@ -118,7 +133,6 @@ private fun PlayerChrome(
     onSettings: () -> Unit,
     onPlay: () -> Unit,
     onSeek: (Long) -> Unit,
-    onRecenter: () -> Unit,
     onRetry: () -> Unit,
 ) {
     var seekFraction by remember { mutableStateOf<Float?>(null) }
@@ -166,11 +180,6 @@ private fun PlayerChrome(
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),
                     contentPadding = PaddingValues(horizontal = 4.dp),
                 ) { Text(if (status.playing) "暂停" else if (status.ended) "重播" else "播放", maxLines = 1) }
-                TextButton(
-                    onClick = onRecenter,
-                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                    contentPadding = PaddingValues(horizontal = 4.dp),
-                ) { Text("回正", maxLines = 1) }
                 TextButton(
                     onClick = onExit,
                     modifier = Modifier.weight(1f).heightIn(min = 48.dp),

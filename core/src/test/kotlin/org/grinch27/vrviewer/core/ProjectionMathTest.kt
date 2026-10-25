@@ -44,8 +44,8 @@ class ProjectionMathTest {
     }
     @Test fun fovIsFiniteAndBounded() {
         assertEquals(80f, PlaybackProfile(fieldOfView = Float.NaN).normalized().fieldOfView, 0f)
-        assertEquals(35f, PlaybackProfile(fieldOfView = -1f).normalized().fieldOfView, 0f)
-        assertEquals(110f, PlaybackProfile(fieldOfView = 400f).normalized().fieldOfView, 0f)
+        assertEquals(PlaybackProfile.MIN_FOV, PlaybackProfile(fieldOfView = -1f).normalized().fieldOfView, 0f)
+        assertEquals(PlaybackProfile.MAX_FOV, PlaybackProfile(fieldOfView = 400f).normalized().fieldOfView, 0f)
     }
     @Test fun finishedOrNegativePositionsDoNotResumeAtTheEnd() {
         assertEquals(0L, ProjectionMath.resumePosition(-1, 100_000))

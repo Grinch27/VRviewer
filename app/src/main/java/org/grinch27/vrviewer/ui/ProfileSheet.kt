@@ -1,21 +1,27 @@
-// Requirements: projection and source packing controls; display-mode selection has been removed.
-// Open decisions/research: source auto-detection and non-equirectangular projections are deferred.
-// Risks/verification: source eye selection, half-packing aspect and settings must not change Activity orientation.
+// Requirements: zoom for every projection; independent horizontal/vertical FOV; recenter next to reset in settings.
+// Open decisions/research: gesture sensitivity and device comfort need user feedback.
+// Risks/verification: accept only positive finite zoom; reset view without changing source, progress or orientation.
 package org.grinch27.vrviewer.ui
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import org.grinch27.vrviewer.core.PlaybackProfile
 import org.grinch27.vrviewer.core.Projection
+import org.grinch27.vrviewer.core.ProjectionMath
 import org.grinch27.vrviewer.core.StereoLayout
 import org.grinch27.vrviewer.playback.PlaybackStatus
+import java.util.Locale
 
 fun projectionLabel(value: Projection) = when (value) {
     Projection.FLAT -> "平面"
@@ -38,6 +44,7 @@ fun ProfileSheet(
     profile: PlaybackProfile,
     status: PlaybackStatus,
     headAvailable: Boolean,
+    viewportAspect: Float,
     onProfile: (PlaybackProfile) -> Unit,
     onSpeed: (Float) -> Unit,
     onLoop: (Boolean) -> Unit,
@@ -57,9 +64,32 @@ fun ProfileSheet(
             }
             if (profile.projection != Projection.FLAT) {
                 ToggleRow(if (headAvailable) "陀螺仪控制" else "设备无姿态传感器，使用拖动", profile.headTracking && headAvailable, headAvailable) { onProfile(profile.copy(headTracking = it)) }
-                Text("垂直视野 ${profile.fieldOfView.toInt()}°", style = MaterialTheme.typography.labelLarge)
-                Slider(value = profile.fieldOfView, onValueChange = { onProfile(profile.copy(fieldOfView = it)) }, valueRange = 35f..110f)
-                OutlinedButton(onClick = onRecenter) { Text("视角回正") }
+            }
+            HorizontalDivider()
+            ZoomSetting(profile.zoom) { onProfile(profile.copy(zoom = it)) }
+            Text("画面旋转 ${angleLabel(profile.rotationDegrees)}°；双指扭转可调整，单指可拖动。", style = MaterialTheme.typography.bodySmall)
+            if (profile.projection != Projection.FLAT) {
+                val horizontal = ProjectionMath.horizontalFov(profile, viewportAspect)
+                val tangents = ProjectionMath.viewTangents(profile, viewportAspect)
+                Text("基础 FOV（缩放前）", style = MaterialTheme.typography.titleSmall)
+                Text("水平 FOV ${angleLabel(horizontal)}°", style = MaterialTheme.typography.labelLarge)
+                Slider(
+                    value = horizontal.coerceIn(PlaybackProfile.MIN_FOV, PlaybackProfile.MAX_FOV),
+                    onValueChange = { onProfile(profile.copy(horizontalFieldOfView = it)) },
+                    valueRange = PlaybackProfile.MIN_FOV..PlaybackProfile.MAX_FOV,
+                )
+                Text("垂直 FOV ${angleLabel(profile.fieldOfView)}°", style = MaterialTheme.typography.labelLarge)
+                Slider(value = profile.fieldOfView, onValueChange = { onProfile(profile.copy(fieldOfView = it)) }, valueRange = PlaybackProfile.MIN_FOV..PlaybackProfile.MAX_FOV)
+                Text("当前视场：水平 ${angleLabel(ProjectionMath.fovFromTangent(tangents.first))}°，垂直 ${angleLabel(ProjectionMath.fovFromTangent(tangents.second))}°。两轴独立调整，画面比例也会随之变化。", style = MaterialTheme.typography.bodySmall)
+            } else {
+                Text("平面视频使用缩放比例；水平/垂直 FOV 在 180°/360°投影中调整。", style = MaterialTheme.typography.bodySmall)
+            }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = onRecenter) { Text("回正") }
+                OutlinedButton(onClick = {
+                    onProfile(profile.copy(zoom = 1f, fieldOfView = 80f, horizontalFieldOfView = ProjectionMath.horizontalFov(PlaybackProfile(), viewportAspect), rotationDegrees = 0f, panX = 0f, panY = 0f))
+                    onRecenter()
+                }) { Text("重置观看参数") }
             }
             HorizontalDivider()
             Text("播放速度", style = MaterialTheme.typography.titleSmall)
@@ -68,6 +98,35 @@ fun ProfileSheet(
             Text("180°/360°仅支持等距柱状投影，不包含鱼眼、立方体或特殊网格。SBS 默认显示左图，TB 默认显示上图，可切换使用右眼画面。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("完成") }
         }
+    }
+}
+
+private fun angleLabel(degrees: Float): String = String.format(
+    Locale.ROOT,
+    if (degrees != 0f && (kotlin.math.abs(degrees) < .01f || kotlin.math.abs(degrees) > 179.99f)) "%.4f" else "%.2f",
+    degrees,
+)
+
+@Composable
+private fun ZoomSetting(zoom: Float, onZoom: (Float) -> Unit) {
+    var text by remember(zoom) { mutableStateOf(zoom.toString()) }
+    val value = text.toFloatOrNull()?.takeIf { it.isFinite() && it > 0f }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it },
+        label = { Text("缩放比例（倍）") },
+        supportingText = { Text("双指捏合调整，也可输入大于 0 的倍数。") },
+        singleLine = true,
+        isError = text.isNotBlank() && value == null,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { value?.let(onZoom) }),
+        trailingIcon = { TextButton(onClick = { value?.let(onZoom) }, enabled = value != null) { Text("应用") } },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+        TextButton(onClick = { onZoom(ProjectionMath.scaledZoom(zoom, .8f)) }) { Text("缩小") }
+        TextButton(onClick = { onZoom(1f) }) { Text("恢复 1×") }
+        TextButton(onClick = { onZoom(ProjectionMath.scaledZoom(zoom, 1.25f)) }) { Text("放大") }
     }
 }
 

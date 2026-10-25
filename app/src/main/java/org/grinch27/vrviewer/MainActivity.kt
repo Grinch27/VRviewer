@@ -1,8 +1,9 @@
-// Requirements/ambiguities: the home screen contains exactly two buttons; URL means a direct HTTP(S) media link.
-// Research/optimization: keep playback controls in the player; no library scanning or network preflight on launch.
-// Risks/verification: restore the selected source, validate URL schemes, and keep signed URLs out of permanent history.
+// Requirements/ambiguities: two home actions; let the user choose a file app that supports returning content URIs.
+// Research/optimization: GET_CONTENT exposes file apps; OPEN_DOCUMENT remains a persistent-grant option.
+// Risks/verification: providers can grant temporary access only; reject file paths and keep URLs out of history.
 package org.grinch27.vrviewer
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -71,9 +72,17 @@ class MainActivity : ComponentActivity() {
         intent.data?.takeIf { intent.action == Intent.ACTION_VIEW && it.scheme == "content" }?.toString()
 }
 
-private class LocalVideoPicker : ActivityResultContracts.OpenDocument() {
-    override fun createIntent(context: Context, input: Array<String>): Intent = super.createIntent(context, input).apply {
-        putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+private class LocalVideoPicker : ActivityResultContracts.GetContent() {
+    override fun createIntent(context: Context, input: String): Intent {
+        val fileApps = super.createIntent(context, input).putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+        val documents = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = input
+            putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+        }
+        return Intent.createChooser(fileApps, "选择文件应用").apply {
+            putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(documents))
+        }
     }
 }
 
@@ -89,10 +98,14 @@ private fun PlayerApp(activity: MainActivity, incomingUri: String?) {
     var urlText by rememberSaveable { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(LocalVideoPicker()) { uri ->
         uri?.let {
-            if (!store.retainReadGrant(activity, it)) {
-                Toast.makeText(activity, "此提供方只授予临时访问，下次可能需要重新选择视频。", Toast.LENGTH_LONG).show()
+            if (it.scheme != "content") {
+                Toast.makeText(activity, "此应用未返回可读取的文件，请选择其他文件应用。", Toast.LENGTH_LONG).show()
+            } else {
+                if (!store.retainReadGrant(activity, it)) {
+                    Toast.makeText(activity, "此提供方只授予临时访问，下次可能需要重新选择视频。", Toast.LENGTH_LONG).show()
+                }
+                selectedUri = it.toString()
             }
-            selectedUri = it.toString()
         }
     }
     LaunchedEffect(incomingUri) {
@@ -134,7 +147,13 @@ private fun PlayerApp(activity: MainActivity, incomingUri: String?) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp), contentAlignment = Alignment.Center) {
                 Column(Modifier.widthIn(max = 360.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Button(onClick = { picker.launch(arrayOf("video/*")) }, enabled = !loading, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
+                    Button(onClick = {
+                        try {
+                            picker.launch("video/*")
+                        } catch (_: ActivityNotFoundException) {
+                            Toast.makeText(activity, "没有可用的文件选择应用。", Toast.LENGTH_LONG).show()
+                        }
+                    }, enabled = !loading, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
                         Text("打开本地文件")
                     }
                     Button(onClick = { showUrl = true }, enabled = !loading, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {

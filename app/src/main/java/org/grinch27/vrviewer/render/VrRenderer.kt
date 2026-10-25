@@ -1,4 +1,4 @@
-// Requirements: one full-size viewport; source eye selection does not create a split-screen display.
+// Requirements: one viewport with zoom, independent ray slopes and screen-plane image rotation.
 // Open decisions/research: mesh metadata, fisheye, cubemaps and HDR need separate validation.
 // Optimization/verification: one OES texture; test EGL recreation, source crop, aspect and shader precision.
 package org.grinch27.vrviewer.render
@@ -17,7 +17,8 @@ import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.microedition.khronos.egl.EGLConfig
 import javax.microedition.khronos.opengles.GL10
-import kotlin.math.tan
+import kotlin.math.cos
+import kotlin.math.sin
 
 internal class VrRenderer(
     private val context: Context,
@@ -80,7 +81,7 @@ internal class VrRenderer(
             check(status[0] == GLES20.GL_TRUE) { GLES20.glGetProgramInfoLog(program) }
             positionLocation = GLES20.glGetAttribLocation(program, "aPosition")
             locations.clear()
-            for (name in listOf("uTexture", "uTextureTransform", "uCameraRotation", "uEyeRect", "uTexel", "uViewportAspect", "uVideoAspect", "uTanHalfFov", "uProjection")) {
+            for (name in listOf("uTexture", "uTextureTransform", "uCameraRotation", "uEyeRect", "uTexel", "uViewportAspect", "uVideoAspect", "uTanHalfFov", "uZoom", "uRotation", "uPan", "uProjection")) {
                 locations[name] = GLES20.glGetUniformLocation(program, name)
             }
             val ids = IntArray(1)
@@ -135,14 +136,20 @@ internal class VrRenderer(
             GLES20.glUniformMatrix4fv(location("uCameraRotation"), 1, false, camera, 0)
             GLES20.glUniform2f(location("uTexel"), 1f / videoWidth.coerceAtLeast(2), 1f / videoHeight.coerceAtLeast(2))
             GLES20.glUniform1f(location("uVideoAspect"), videoAspect)
-            GLES20.glUniform1f(location("uTanHalfFov"), tan(Math.toRadians(currentProfile.fieldOfView.toDouble() / 2)).toFloat())
+            val aspect = width.toFloat() / height
+            val tangents = ProjectionMath.viewTangents(currentProfile, aspect)
+            val rotation = Math.toRadians(currentProfile.rotationDegrees.toDouble())
+            GLES20.glUniform2f(location("uTanHalfFov"), tangents.first, tangents.second)
+            GLES20.glUniform1f(location("uZoom"), currentProfile.zoom)
+            GLES20.glUniform2f(location("uRotation"), cos(rotation).toFloat(), sin(rotation).toFloat())
+            GLES20.glUniform2f(location("uPan"), currentProfile.panX, currentProfile.panY)
             GLES20.glUniform1i(location("uProjection"), currentProfile.projection.shaderId)
             quad.position(0)
             GLES20.glEnableVertexAttribArray(positionLocation)
             GLES20.glVertexAttribPointer(positionLocation, 2, GLES20.GL_FLOAT, false, 0, quad)
             val region = ProjectionMath.eyeRegion(currentProfile.stereo, if (currentProfile.rightEye) 1 else 0)
             GLES20.glViewport(0, 0, width, height)
-            GLES20.glUniform1f(location("uViewportAspect"), width.toFloat() / height)
+            GLES20.glUniform1f(location("uViewportAspect"), aspect)
             GLES20.glUniform4f(location("uEyeRect"), region.left, region.top, region.width, region.height)
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             GLES20.glDisableVertexAttribArray(positionLocation)

@@ -1,4 +1,4 @@
-// Requirements: preserve local progress while ignoring removed display settings in older records.
+// Requirements: preserve local progress, zoom, rotation, pan and FOV while ignoring old display settings.
 // Open decisions/research: invalid-grant cleanup and larger persistence migrations remain deferred.
 // Risks/verification: legacy eye choice, malformed preferences and process death; never resolve URI to a raw path.
 package org.grinch27.vrviewer.storage
@@ -61,6 +61,7 @@ class PlaybackStore(context: Context) {
     }.getOrDefault(false)
 
     private fun encode(entry: MovieEntry) = JSONObject().apply {
+        val profile = entry.profile.normalized()
         put("uri", entry.uri)
         put("name", entry.name.take(256))
         put("position", entry.positionMs.coerceAtLeast(0))
@@ -70,8 +71,13 @@ class PlaybackStore(context: Context) {
         put("stereo", entry.profile.stereo.name)
         put("rightEye", entry.profile.rightEye)
         put("half", entry.profile.halfPacked)
-        put("fov", entry.profile.normalized().fieldOfView.toDouble())
+        put("fov", profile.fieldOfView.toDouble())
         put("head", entry.profile.headTracking)
+        put("zoom", profile.zoom.toDouble())
+        profile.horizontalFieldOfView?.let { put("horizontalFov", it.toDouble()) }
+        put("rotation", profile.rotationDegrees.toDouble())
+        put("panX", profile.panX.toDouble())
+        put("panY", profile.panY.toDouble())
     }
 
     private fun decode(json: JSONObject): MovieEntry = MovieEntry(
@@ -88,6 +94,11 @@ class PlaybackStore(context: Context) {
             halfPacked = json.optBoolean("half"),
             fieldOfView = json.optDouble("fov", 80.0).toFloat(),
             headTracking = json.optBoolean("head"),
+            zoom = json.optDouble("zoom", 1.0).toFloat(),
+            horizontalFieldOfView = if (json.has("horizontalFov")) json.optDouble("horizontalFov").toFloat() else null,
+            rotationDegrees = json.optDouble("rotation", 0.0).toFloat(),
+            panX = json.optDouble("panX", 0.0).toFloat(),
+            panY = json.optDouble("panY", 0.0).toFloat(),
         ).normalized(),
     )
 }
