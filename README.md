@@ -56,17 +56,17 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 - Actions 分别上传调试 APK、未签名 Release APK 与各自 SHA256SUMS；不运行单元测试、instrumentation、模拟器或独立 lint 步骤，不上传测试报告，不发 GitHub Release 或应用商店。
 - 调试签名由构建环境生成，不保证不同运行的 APK 能覆盖旧版本；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；稳定签名需要另行配置。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
 
-0.1.2 底部播放控制栏已构建成功：[下载 Debug APK](https://github.com/Grinch27/VRviewer/actions/runs/40190151748/artifacts/12597805597) · [下载未签名 Release](https://github.com/Grinch27/VRviewer/actions/runs/40190151748/artifacts/12596669653) · [构建记录](https://github.com/Grinch27/VRviewer/actions/runs/40190151748)。顶部操作栏和 ±10 秒按钮已删除，文件名在进度条上方按宽度自动滚动；设置位于播放按钮左侧，返回位于回正右侧。控制栏在播放时仍约 4 秒后隐藏，暂停时持续显示，可完整查看长文件名。
+0.1.3 已构建成功：[下载 Debug APK](https://github.com/Grinch27/VRviewer/actions/runs/40193456954/artifacts/12599251256) · [下载未签名 Release](https://github.com/Grinch27/VRviewer/actions/runs/40193456954/artifacts/12599266216) · [构建记录](https://github.com/Grinch27/VRviewer/actions/runs/40193456954)。包含文件应用选择、双指画面旋转、平面/全景缩放、独立水平/垂直 FOV；底部仅留设置、播放/暂停、返回，回正移到设置页与重置并排。文件名滚动与播放时约 4 秒隐藏控制栏的规则继续保留。
 
 在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`。未签名 Release 单独位于 `VRviewer-release-unsigned-<源码提交>`，每份压缩包均含 `SHA256SUMS`。产物保留 14 天，过期后可手动运行工作流重建。
 
 Gradle 编译与打包的内置检查按插件默认行为执行。当前没有测试 Job、测试 APK 构建、模拟器/KVM/音频运行库安装或自动截图。测试源码保留为手动诊断材料，只有用户另行要求时才执行。
 
-## 最近已完成的构建记录（0.1.2）
+## 最近已完成的构建记录（0.1.3）
 
-源码 `c362d09e0c2d27d608e9e01c86ebf737ad487bad` 的 [Actions #40190151748](https://github.com/Grinch27/VRviewer/actions/runs/40190151748) 已成功，只有 runner-image 和 APK build 两个 Job。Gradle 用时 4 分 44 秒，日志确认执行了 assembleDebug/assembleRelease，没有执行测试任务；本次没有功能测试、模拟器、测试 APK 或测试报告。assembleRelease 自带的 lintVital 构建检查由 AGP 默认执行，不是独立测试环节。
+源码 `b92bf50cb700f5e86f4b858297116a2079e8e847` 的 [Actions #40193456954](https://github.com/Grinch27/VRviewer/actions/runs/40193456954) 已成功，runner-image 和 APK build 两个 Job 均完成，Debug 与未签名 Release 已上传。工作流继续仅调用 assembleDebug/assembleRelease，不设置测试环节；assembleRelease 自带的 lintVital 构建检查由 AGP 默认执行。
 
-按最新项目规则，后续常规修改只确认 Actions 结果并提供 APK 链接，不额外下载核对 SHA256 或扫描产物。构建成功不代表执行或通过了播放测试；本次底部布局、文件名滚动与大字号效果在模拟器和手机上均为 NOT_TESTED。
+按项目规则，本次只确认 Actions 结果并提供 APK 链接，没有下载或扫描产物。构建成功不代表功能实测通过；文件管理器兼容、多指手势、两轴 FOV、参数恢复、极端缩放、底部布局与大字号效果在模拟器和手机上均为 NOT_TESTED。
 
 ## 历史验证记录（当前工作流不执行）
 
