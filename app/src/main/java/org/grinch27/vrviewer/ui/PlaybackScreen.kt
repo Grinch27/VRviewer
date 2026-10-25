@@ -1,4 +1,4 @@
-// Requirements: one viewing window and transport panel; never request or restore Activity orientation.
+// Requirements: one viewing window with bottom-only controls; never request or restore Activity orientation.
 // Open decisions/research: physical-device sensors and subtitles remain separate acceptance items.
 // Risks/verification: settings, recreation, background silence, Surface lifetime and unknown-duration seeking.
 package org.grinch27.vrviewer.ui
@@ -7,13 +7,13 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
@@ -102,7 +102,7 @@ fun PlaybackScreen(activity: MainActivity, entry: MovieEntry, checkpoint: (Movie
             PlayerChrome(
                 entry.name, status, Modifier.fillMaxSize().safeDrawingPadding(),
                 onExit, { settings = true }, controller::togglePlay, controller::seek,
-                { controller.seekBy(it) }, { video.recenter() }, controller::retry,
+                { video.recenter() }, controller::retry,
             )
         }
         if (settings) ProfileSheet(profile, status, video.headTrackingAvailable, controller::updateProfile, controller::speed, controller::loop, video::recenter) { settings = false }
@@ -118,17 +118,11 @@ private fun PlayerChrome(
     onSettings: () -> Unit,
     onPlay: () -> Unit,
     onSeek: (Long) -> Unit,
-    onSeekBy: (Long) -> Unit,
     onRecenter: () -> Unit,
     onRetry: () -> Unit,
 ) {
     var seekFraction by remember { mutableStateOf<Float?>(null) }
-    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.SpaceBetween) {
-        Row(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = .65f)), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onExit) { Text("返回") }
-            Text(name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge, color = Color.White)
-            TextButton(onClick = onSettings) { Text("设置") }
-        }
+    Column(modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom)) {
         status.error?.let { message ->
             Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = .95f), shape = MaterialTheme.shapes.medium) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -138,21 +132,50 @@ private fun PlayerChrome(
             }
         }
         Column(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = .75f)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(timeLabel(status.positionMs), color = Color.White, style = MaterialTheme.typography.labelMedium)
-                Text(timeLabel(status.durationMs), color = Color.White, style = MaterialTheme.typography.labelMedium)
-            }
+            Text(
+                text = name,
+                modifier = Modifier.fillMaxWidth().basicMarquee(iterations = Int.MAX_VALUE),
+                maxLines = 1,
+                softWrap = false,
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+            )
             Slider(
                 value = seekFraction ?: if (status.durationMs > 0) (status.positionMs.toDouble() / status.durationMs).toFloat().coerceIn(0f, 1f) else 0f,
                 onValueChange = { seekFraction = it },
                 onValueChangeFinished = { seekFraction?.let { onSeek((status.durationMs * it).toLong()) }; seekFraction = null },
                 enabled = status.durationMs > 0 && status.error == null,
             )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { onSeekBy(-10_000) }) { Text("−10秒") }
-                FilledTonalButton(onClick = onPlay, enabled = status.error == null) { Text(if (status.playing) "暂停" else if (status.ended) "重播" else "播放") }
-                TextButton(onClick = { onSeekBy(10_000) }) { Text("+10秒") }
-                TextButton(onClick = onRecenter) { Text("回正") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(timeLabel(status.positionMs), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                Text(timeLabel(status.durationMs), color = Color.White, style = MaterialTheme.typography.labelMedium)
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(
+                    onClick = onSettings,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) { Text("设置", maxLines = 1) }
+                FilledTonalButton(
+                    onClick = onPlay,
+                    enabled = status.error == null,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) { Text(if (status.playing) "暂停" else if (status.ended) "重播" else "播放", maxLines = 1) }
+                TextButton(
+                    onClick = onRecenter,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) { Text("回正", maxLines = 1) }
+                TextButton(
+                    onClick = onExit,
+                    modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 4.dp),
+                ) { Text("返回", maxLines = 1) }
             }
         }
     }

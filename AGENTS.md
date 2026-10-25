@@ -515,6 +515,7 @@ https://docs.github.com/en/actions/reference/workflows-and-actions/reusing-workf
 - 首版为 Kotlin / Compose Material 3 / Media3 / OpenGL ES 2.0。`core` 是纯 JVM 模型与数学；`app` 含 playback、render、storage、ui。
 - 用户在 2026-10-24 明确删除“显示方式（单眼窗口/双眼分屏）”。固定单个观看视口，保留投影与片源排布两个独立维度，以及 SBS/TB 的源眼选择。不得重新引入显示模式或双眼分屏。
 - 首页严格只保留“打开本地文件”和“打开 URL 链接”两个按钮；控制和 VR 设置位于播放器内，不展示媒体库、最近列表或额外首页入口。
+- 用户在 2026-10-25 要求播放操作栏合并到底部：文件名位于进度条上方，超宽时自动滚动；按钮从左到右为设置、播放/暂停/重播、回正、返回。不显示 ±10 秒按钮，保留键盘快进/快退。
 - 功能专注视频播放：本地文档与用户输入的 HTTP/HTTPS 媒体直链（含 HLS/DASH），不解析视频网站网页，不引入账号、社交、下载器、投屏和云服务。
 - 完整参考依据、取舍与改进清单见 `docs/DESIGN.md`；真实验证状态见 `README.md`。
 

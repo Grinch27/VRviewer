@@ -16,7 +16,8 @@ Android VR 视频播放器。首页只保留两个按钮：
 | 片源排布 | 单目、左右 SBS、上下 TB；立体片源可选择左/上或右/下画面 |
 | 观看窗口 | 固定单个视口与一套控制栏；方向遵循系统，不由播放器强制切换 |
 | 操作 | 拖动视角、双指调节视野、回正、可选姿态控制 |
-| 播放 | 暂停、进度、±10 秒、倍速、单片循环 |
+| 播放 | 暂停、进度拖动、倍速、单片循环；键盘左右键快退/快进 10 秒 |
+| 控制栏 | 全部位于底部；文件名在进度条上方，超宽时自动滚动；按钮依次为设置、播放/暂停/重播、回正、返回，无 ±10 秒按钮 |
 | 记忆 | 本地文件保留进度/模式，最多 50 条内部记录但不显示列表；URL 只在当前会话内保存进度和模式 |
 | 系统行为 | 音频焦点、耳机断开处理，进入后台释放播放器与传感器 |
 | 隐私 | 无账号、广告、遥测或上传；URL 不写入永久历史，不申请全盘/相机/麦克风权限，关闭备份 |
@@ -25,12 +26,12 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 
 允许用户指定的 HTTP 链接以兼容局域网媒体；HTTP 本身不加密。HTTPS 使用系统证书校验。HLS/DASH 的格式通常由链接后缀推断；无后缀或特殊鉴权的地址仍需针对具体来源验证。
 
-0.1.1 已按用户决定删除“显示方式（单眼窗口/双眼分屏）”，统一为一个观看窗口，移除方向请求与销毁时恢复方向的逻辑。SBS/TB 表示片源排布，仍可选择其中一眼的画面。当前只处理 SDR，检测到 HDR 会暂停提示；鱼眼、立方体、任意网格和所有设备的 4K/8K 解码均不作兼容承诺。
+0.1.2 将播放操作栏合并到底部并删除 ±10 秒按钮。此前 0.1.1 已按用户决定删除“显示方式（单眼窗口/双眼分屏）”，统一为一个观看窗口，移除方向请求与销毁时恢复方向的逻辑。SBS/TB 表示片源排布，仍可选择其中一眼的画面。当前只处理 SDR，检测到 HDR 会暂停提示；鱼眼、立方体、任意网格和所有设备的 4K/8K 解码均不作兼容承诺。
 
 ## 使用
 
 1. 点击“打开本地文件”，或点击“打开 URL 链接”输入媒体地址。
-2. 进入播放器后，在“设置”中选择投影与片源排布。默认平面、单目；SBS 显示左图、TB 显示上图，可切换“使用右眼画面”。
+2. 进入播放器后，在底部左侧“设置”中选择投影与片源排布。默认平面、单目；SBS 显示左图、TB 显示上图，可切换“使用右眼画面”。
 3. 180°/360°可拖动视角、双指调整 35°–110°垂直视野，也可选择姿态控制与回正。
 4. 单击画面显示/隐藏控制，双击播放/暂停；空格/确认键播放暂停，左右键快退/快进。
 5. 文件授权或网络链接失效时返回首页重新打开。网络 URL 在当前会话中保留旋转时的播放状态，进程结束后不从永久记录恢复。
@@ -50,15 +51,15 @@ URL 指直接媒体资源，例如 MP4、WebM、m3u8、mpd。不能把视频网�
 - Actions 分别上传调试 APK、未签名 Release APK 与各自 SHA256SUMS；不运行单元测试、instrumentation、模拟器或独立 lint 步骤，不上传测试报告，不发 GitHub Release 或应用商店。
 - 调试签名由构建环境生成，不保证不同运行的 APK 能覆盖旧版本；卸载会清空应用内进度与设置。需要保留记录时先确认迁移方式；稳定签名需要另行配置。更新签名要求见 [Android 官方说明](https://developer.android.com/google/play/app-updates)。
 
-本轮仅构建已成功：[下载 Debug APK](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554581237) · [下载未签名 Release](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554576425) · [构建记录](https://github.com/Grinch27/VRviewer/actions/runs/40078550291)。应用功能与版本保持 0.1.1。
+上一轮 0.1.1 的仅构建已成功：[下载 Debug APK](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554581237) · [下载未签名 Release](https://github.com/Grinch27/VRviewer/actions/runs/40078550291/artifacts/12554576425) · [构建记录](https://github.com/Grinch27/VRviewer/actions/runs/40078550291)。本次 0.1.2 播放界面调整将在提交后沿用同一仅构建流程；该历史产物不包含本次界面修改。
 
 在 Actions 运行页面的 **Artifacts** 中下载 `VRviewer-debug-<源码提交>`，解压后安装 `VRviewer-debug.apk`。未签名 Release 单独位于 `VRviewer-release-unsigned-<源码提交>`，每份压缩包均含 `SHA256SUMS`。产物保留 14 天，过期后可手动运行工作流重建。
 
 Gradle 编译与打包的内置检查按插件默认行为执行。当前没有测试 Job、测试 APK 构建、模拟器/KVM/音频运行库安装或自动截图。测试源码保留为手动诊断材料，只有用户另行要求时才执行。
 
-## 本轮构建记录
+## 最近已完成的构建记录（0.1.1）
 
-源码 `fdc78f7ce4269ac3535e54ed3792f5bad72b5f0c` 的 [Actions #40078550291](https://github.com/Grinch27/VRviewer/actions/runs/40078550291) 已成功，只有 runner-image 和 APK build 两个 Job。Gradle 日志确认执行了 assembleDebug/assembleRelease，没有执行测试任务；本轮没有功能测试、模拟器、测试 APK 或测试报告。assembleRelease 自带的 lintVital 构建检查由 AGP 默认执行，不是独立测试环节。
+源码 `fdc78f7ce4269ac3535e54ed3792f5bad72b5f0c` 的 [Actions #40078550291](https://github.com/Grinch27/VRviewer/actions/runs/40078550291) 已成功，只有 runner-image 和 APK build 两个 Job。Gradle 日志确认执行了 assembleDebug/assembleRelease，没有执行测试任务；该次没有功能测试、模拟器、测试 APK 或测试报告。assembleRelease 自带的 lintVital 构建检查由 AGP 默认执行，不是独立测试环节。
 
 已下载并核对两份压缩包与 SHA256SUMS：
 
