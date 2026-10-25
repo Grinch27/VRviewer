@@ -115,7 +115,7 @@ private fun ZoomSetting(zoom: Float, onZoom: (Float) -> Unit) {
         value = text,
         onValueChange = { text = it },
         label = { Text("缩放比例（倍）") },
-        supportingText = { Text("双指捏合调整，也可输入大于 0 的倍数。") },
+        supportingText = { Text("三指捏合调整，也可输入大于 0 的倍数。") },
         singleLine = true,
         isError = text.isNotBlank() && value == null,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),

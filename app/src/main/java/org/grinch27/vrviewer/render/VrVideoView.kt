@@ -1,6 +1,6 @@
-// Requirements/ambiguities: two fingers zoom and rotate the image; Activity orientation belongs to the system.
+// Requirements/ambiguities: exactly two fingers rotate, exactly three scale; Activity orientation belongs to the system.
 // Research/optimization: one-finger flat pan or panorama look; retain pointer IDs across multi-touch transitions.
-// Risks/verification: suppress taps after multi-touch, rebase replaced pointers and serialize Surface publication.
+// Risks/verification: gate transforms by active count, rebase on pointer changes and suppress taps after multi-touch.
 package org.grinch27.vrviewer.render
 
 import android.annotation.SuppressLint
@@ -42,16 +42,23 @@ class VrVideoView(
     }
     val headTrackingAvailable get() = tracker.available
     private var multiTouch = false
+    private var activePointerCount = 0
     private var firstPointer = -1
     private var secondPointer = -1
     private var previousAngle: Float? = null
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop.toFloat()
     private val scale = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+        override fun onScaleBegin(detector: ScaleGestureDetector): Boolean = activePointerCount == 3
         override fun onScale(detector: ScaleGestureDetector): Boolean {
-            changeProfile(currentProfile.copy(zoom = ProjectionMath.scaledZoom(currentProfile.zoom, detector.scaleFactor)))
+            if (activePointerCount == 3) {
+                changeProfile(currentProfile.copy(zoom = ProjectionMath.scaledZoom(currentProfile.zoom, detector.scaleFactor)))
+            }
             return true
         }
-    }).apply { isQuickScaleEnabled = false }
+    }).apply {
+        isQuickScaleEnabled = false
+        isStylusScaleEnabled = false
+    }
     private val gestures = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
         override fun onDown(e: MotionEvent) = true
         override fun onSingleTapConfirmed(e: MotionEvent): Boolean { performClick(); return true }
@@ -88,7 +95,7 @@ class VrVideoView(
         preserveEGLContextOnPause = true
         setRenderer(renderer)
         renderMode = RENDERMODE_WHEN_DIRTY
-        contentDescription = "视频观看区域；单指拖动，双指缩放或旋转画面，双击播放或暂停"
+        contentDescription = "视频观看区域；单指拖动，两指旋转画面，三指缩放，双击播放或暂停"
     }
 
     fun update(profile: PlaybackProfile, width: Int, height: Int, pixelRatio: Float) {
@@ -143,7 +150,7 @@ class VrVideoView(
             if (firstPointer < 0) firstPointer = event.getPointerId(index)
             else { secondPointer = event.getPointerId(index); break }
         }
-        previousAngle = pointerAngle(event)
+        previousAngle = if (activePointerCount == 2) pointerAngle(event) else null
     }
 
     /** Main thread only, after onPause() has stopped the GL thread. */
@@ -175,6 +182,11 @@ class VrVideoView(
     }
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        activePointerCount = when (event.actionMasked) {
+            MotionEvent.ACTION_POINTER_UP -> event.pointerCount - 1
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> 0
+            else -> event.pointerCount
+        }
         if (event.actionMasked == MotionEvent.ACTION_DOWN) {
             multiTouch = false
             previousAngle = null
@@ -192,7 +204,7 @@ class VrVideoView(
         if (multiTouch) {
             when (event.actionMasked) {
                 MotionEvent.ACTION_MOVE -> {
-                    val angle = pointerAngle(event)
+                    val angle = if (activePointerCount == 2) pointerAngle(event) else null
                     val previous = previousAngle
                     if (angle != null && previous != null) {
                         val delta = ProjectionMath.wrappedDegrees(angle - previous)
